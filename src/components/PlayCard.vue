@@ -1,10 +1,11 @@
 <template>
-  <div class="cardContainer" @click="useCard" :style="{
+  <div :class="{specialCtn: isSpecial(cardValue.type)}" class="cardContainer" @click="useCard" :style="{
     backgroundColor: (player == 1 ? 'purple' : 'orange'),
     color: (player == 1? 'white' : 'white')
   }">
-    <div class="value">
-      {{ cardValue }}
+    <div v-if="isSpecial(cardValue.type)" class="img">IMAGE</div>
+    <div class="value" :class="{special: isSpecial(cardValue.type)}">
+      {{ checkType(cardValue) }}
     </div>
   </div>
 </template>
@@ -23,7 +24,16 @@
     }
   });
   const emit = defineEmits(["usecard"]);
-
+  const checkType = (c) => {
+    if (c.type != "special") {
+      return c.type
+    } else {
+      return c.text
+    }
+  }
+  const isSpecial = (c) => {
+    if (c === 'special') return true;
+  }
   const useCard = () => {
     emit("usecard", props.cardValue)
   }
@@ -48,5 +58,20 @@
   .value {
     font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
     font-size: 70px;
+  }
+  .specialCtn {
+    align-items: space-between;
+    justify-content: space-between;
+    flex-direction: column;
+  }
+  .special {
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: white;
+    width: 100%;
+    height: 60%;
+    color: black;
   }
 </style>
