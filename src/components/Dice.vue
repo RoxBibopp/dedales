@@ -8,7 +8,7 @@
   </div>
   <div v-if="roll"class="dice-container">
     <div class="dice">{{ diceValue }}</div>
-    <button @click="rollDice" :disabled="rolling">Lancer le dé</button>
+    <button v-if="!rolling" @click="rollDice" :disabled="rolling">Lancer le dé</button>
   </div>
 </template>
 
@@ -33,7 +33,6 @@ const rollDice = () => {
     if (counter > 40) {
       clearInterval(interval)
       diceValue.value = Math.floor(Math.random() * 6) + 1
-      rolling.value = false
     }
   }, 30) 
   setTimeout(() => {
