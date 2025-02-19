@@ -77,7 +77,33 @@ const goal2 = { row: 0, col: 0 };
 const winner = ref(null)
 const cardDirections = ['N', 'E', 'S', 'W'];
 const playerTurn = ref(1);
-const deck = ['N', 'E', 'S', 'W', 'N', 'E', 'S', 'W', 'N', 'E', 'S', 'W'];
+const deck = [
+  { type: 'N' },
+  { type: 'N' }, 
+  { type: 'N' },
+  { type: 'N' },
+  { type: 'E' },
+  { type: 'E' },
+  { type: 'E' },
+  { type: 'E' },
+  { type: 'S' },
+  { type: 'S' },
+  { type: 'S' },
+  { type: 'S' },
+  { type: 'W' },
+  { type: 'W' },
+  { type: 'W' },
+  { type: 'W' },
+  { type: 'special',
+    text: 'Cette carte dit coucou dans la console',
+    action: () => console.log("coucou")
+  }, 
+  { 
+    type: 'special',
+    text: 'Cette carte dit fromage dans la console',
+    action: () => console.log("fromage"),
+  }, 
+];
 const cardsPlayer1 = ref(drawCards());
 const cardsPlayer2 = ref(drawCards());
 const currentCards = ref(cardsPlayer1.value);
@@ -289,7 +315,11 @@ const handleCardMovement = (direction) => {
 };
 
 const useCard = (cardValue) => {
-  handleCardMovement(cardValue);
+  if ( cardValue.type == 'special') {
+    cardValue.action();
+  } else {
+    handleCardMovement(cardValue.type);
+  }
   currentCards.value.splice(currentCards.value.indexOf(cardValue), 1);
 
   emit("countCards", {player1 : cardsPlayer1.value.length, player2 :cardsPlayer2.value.length })
