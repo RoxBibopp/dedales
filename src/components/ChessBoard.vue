@@ -154,7 +154,7 @@ const walls = ref([
   { row: 18, col: 17 }, { row: 18, col: 18 },
 ]);
 const entryTeleport = ref([
-  { row : 0, col: 1 },
+  { row : 5, col: 2 },
   { row : 5, col: 17 },
   { row : 14, col: 2 },
   { row : 14, col: 17 },

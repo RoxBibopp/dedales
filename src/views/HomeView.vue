@@ -41,7 +41,6 @@
   }
   const deg = ref(0);
   const rotateCompass = (r) => {
-    console.log(r)
     deg.value += r;
   }
   const changeCards = (players) => {
