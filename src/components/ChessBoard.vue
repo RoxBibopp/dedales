@@ -54,7 +54,7 @@
         :card-value="card"
         :player="playerTurn"
         @usecard="useCard"
-        :style="{'left': 120 + (index * 150) +'px'}"
+        :style="{'left': 860 + (index * 150) +'px'}"
       />
     </div>
   </div>
