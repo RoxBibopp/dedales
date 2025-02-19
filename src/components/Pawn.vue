@@ -3,7 +3,8 @@
     class="pawn"
     :style="{
       top: `${pawnPosition.row * 40}px`,
-      left: `${pawnPosition.col * 41}px`
+      left: `${pawnPosition.col * 41}px`,
+      backgroundColor: `${color}`
     }"
   ></div>
 </template>
@@ -16,6 +17,10 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  color: {
+    type: String,
+    required: true,
+  }
 });
 
 </script>
@@ -25,7 +30,6 @@ const props = defineProps({
   position: absolute;
   width: 40px;
   height: 40px;
-  background-color: red; /* Couleur du pion */
   border-radius: 50%; /* Pion circulaire */
 }
 </style>

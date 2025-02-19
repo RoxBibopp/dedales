@@ -1,5 +1,8 @@
 <template>
-  <div class="cardContainer" @click="useCard">
+  <div class="cardContainer" @click="useCard" :style="{
+    backgroundColor: (player == 1 ? 'purple' : 'orange'),
+    color: (player == 1? 'white' : 'white')
+  }">
     <div class="value">
       {{ cardValue }}
     </div>
@@ -15,6 +18,9 @@
       type: String,
       required: true,
     },
+    player: {
+      type: Number
+    }
   });
   const emit = defineEmits(["usecard"]);
 
@@ -36,7 +42,9 @@
     align-items: center;
     justify-content: center;
   }
-
+  .cardContainer:hover .value {
+    color: rgb(64, 238, 6);
+  }
   .value {
     font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
     font-size: 70px;
