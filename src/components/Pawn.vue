@@ -30,6 +30,7 @@ const props = defineProps({
   position: absolute;
   width: 40px;
   height: 40px;
-  border-radius: 50%; /* Pion circulaire */
+  transition: .5s;
+  border-radius: 50%;
 }
 </style>
