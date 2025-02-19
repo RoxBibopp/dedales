@@ -83,7 +83,7 @@ const cardsPlayer2 = ref(drawCards());
 const currentCards = ref(cardsPlayer1.value);
 const showDirection = ref(false);
 const showDice = ref(false);
-function drawCards() {
+const drawCards = () => {
   return [...Array(3)].map(() => deck[Math.floor(Math.random() * deck.length)]);
 }
 
