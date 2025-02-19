@@ -95,8 +95,16 @@ const deck = [
   { type: 'W' },
   { type: 'W' },
   { type: 'special',
-    text: 'Cette carte dit coucou dans la console',
-    action: () => console.log("coucou")
+    text: 'Volez une carte à un adversaire de votre choix',
+    action: () => stealCard()
+  },
+  { type: 'special',
+    text: 'Volez une carte à un adversaire de votre choix',
+    action: () => stealCard()
+  }, 
+  { type: 'special',
+    text: 'Volez une carte à un adversaire de votre choix',
+    action: () => stealCard()
   }, 
   { 
     type: 'special',
@@ -112,7 +120,14 @@ const showDice = ref(false);
 function drawCards() {
   return [...Array(3)].map(() => deck[Math.floor(Math.random() * deck.length)]);
 }
+const stealCard = () => {
+  if (playerTurn.value == 1) {
+    cardsPlayer1.value.push(cardsPlayer2.value.splice(0, 1)[0])
+  } else {
+    cardsPlayer2.value.push(cardsPlayer1.value.splice(0, 1)[0])
+  }
 
+}
 const rotateCompassCase = ref([
   { row : 1, col: 15 },
   { row : 2, col: 2 },
