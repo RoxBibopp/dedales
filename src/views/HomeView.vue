@@ -28,8 +28,12 @@
 </template>
 
 <script setup>
-  import { ref } from 'vue';
+  import { onMounted, ref } from 'vue';
   import ChessBoard from '@/components/ChessBoard.vue';
+  import { useRoute } from 'vue-router';
+
+  const route = useRoute();
+  const playersCount = parseInt(route.query.players) || 2;
 
   const chessRef = ref(null);
   const cardsPlayer1 = ref(3)

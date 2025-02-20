@@ -198,7 +198,7 @@ const entryTeleport = ref([
   { row : 5, col: 2 },
   { row : 5, col: 17 },
   { row : 14, col: 2 },
-  { row : 14, col: 17 },
+  { row : 18, col: 19 },
 ])
 
 const exit1 = reactive({ row : 5, col: 5 });
@@ -255,8 +255,11 @@ const isExit6 = (row, col) => {
   return (exit6.row === row && exit6.col === col);
 }
 const movePawn = (pawn, rowChange, colChange) => {
+  console.log("pawn.row / paw.col",pawn.row +', '+ pawn.col)
+  console.log("rowChange, ColChange",rowChange+', '+ colChange)
   const newRow = pawn.row + rowChange;
   const newCol = pawn.col + colChange;
+  console.log("newRow newCol",newRow+', '+ newCol)
 
   if (newRow === goal1.row && newCol === goal1.col && playerTurn.value === 1) {
     winner.value = "Joueur 1";
@@ -286,7 +289,6 @@ const movePawn = (pawn, rowChange, colChange) => {
       return;
     }
   }
-  
   if (
     newRow >= 0 && newRow < gridSize &&
     newCol >= 0 && newCol < gridSize &&
@@ -295,6 +297,7 @@ const movePawn = (pawn, rowChange, colChange) => {
     pawn.row = newRow;
     pawn.col = newCol;
   }
+  console.log('TEST',playerTurn.value, pawnPosition1.value, pawnPosition2.value);
 };
 
 const handleKeydown = (event) => {
@@ -376,7 +379,9 @@ const closeDiceAndMove = (v) => {
   showDice.value = false;
   const currentPawn = playerTurn.value === 1 ? pawnPosition1.value : pawnPosition2.value;
   const findExit = eval("exit" + v);
-  movePawn(currentPawn, findExit.row, findExit.col -1);
+  currentPawn.row = 0;
+  currentPawn.col = 0;
+  movePawn(currentPawn, findExit.row, findExit.col );
 }
 </script>
 
