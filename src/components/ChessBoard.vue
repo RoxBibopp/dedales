@@ -1,21 +1,25 @@
 <template>
   <div>
+    <!-- Modal de victoire -->
     <div v-if="winner" class="win">
       <div class="winmodal">{{ winner }} a gagné !</div>
     </div>
+    <!-- Modal de choix de direction -->
     <div v-if="showDirection" class="win">
       <div class="winmodal chooseModal">
-        <div class="txt">choisissez une direction :</div>
+        <div class="txt">Choisissez une direction :</div>
         <div class="arrows">
           <div @click="turnLeft"><</div>
           <div @click="turnRight">></div>
         </div>
       </div>
     </div>
+    <!-- Composant de dé -->
     <Dice v-if="showDice"
       @closeDice="closeDice"
       @closeDiceAndMove="closeDiceAndMove"
     />
+    <!-- Echiquier -->
     <div
       class="chessboard"
       @keydown="handleKeydown"
@@ -26,35 +30,34 @@
           v-for="(cell, colIndex) in row"
           :key="'cell-' + rowIndex + '-' + colIndex"
           class="cell"
-         :class="
-            { 
-              wall: isWall(colIndex, rowIndex),
-              locked: isLockedWall(colIndex, rowIndex),
-              goal1: isGoal1(colIndex, rowIndex),
-              goal2: isGoal2(colIndex, rowIndex),
-              rotate: isRotateCase(colIndex, rowIndex),
-              double: isDoubleCase(colIndex, rowIndex),
-              entry: isEntryPoint(colIndex, rowIndex),
-              exit1: isExit1(colIndex, rowIndex),
-              exit2: isExit2(colIndex, rowIndex),
-              exit3: isExit3(colIndex, rowIndex),
-              exit4: isExit4(colIndex, rowIndex),
-              exit5: isExit5(colIndex, rowIndex),
-              exit6: isExit6(colIndex, rowIndex),
-            }"
+          :class="{
+            wall: isWall(rowIndex, colIndex),
+            locked: isLockedWall(rowIndex, colIndex),
+            goal: isGoal(rowIndex, colIndex),
+            rotate: isRotateCase(rowIndex, colIndex),
+            double: isDoubleCase(rowIndex, colIndex),
+            entry: isEntryPoint(rowIndex, colIndex),
+            exit: isExit(rowIndex, colIndex)
+          }"
         ></div>
       </div>
-      <Pawn :pawnPosition="pawnPosition1" :color="'purple'"/>
-      <Pawn :pawnPosition="pawnPosition2" :color="'orange'"/>
+      <!-- Affichage des pions pour chaque joueur -->
+      <Pawn
+        v-for="(pawn, index) in playersPositions"
+        :key="'pawn-' + index"
+        :pawnPosition="pawn"
+        :color="playersColors[index]"
+      />
     </div>
+    <!-- Cartes jouables du joueur courant -->
     <div>
       <PlayCard
         v-for="(card, index) in currentCards"
         class="playCard"
         :card-value="card"
-        :player="playerTurn"
+        :player="playerTurn + 1"
         @usecard="useCard"
-        :style="{'left': 860 + (index * 150) +'px'}"
+        :style="{ left: 860 + (index * 150) + 'px' }"
       />
     </div>
   </div>
@@ -62,21 +65,39 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
+import { useRoute } from 'vue-router';
 import Pawn from './Pawn.vue';
-import { defineEmits } from "vue";
 import PlayCard from './PlayCard.vue';
-import Dice from '../components/Dice.vue'
+import Dice from '../components/Dice.vue';
+import { defineEmits, defineExpose } from 'vue';
+
+const route = useRoute();
+const playersCount = parseInt(route.query.players) || 2; 
 
 const emit = defineEmits(["rotate", "countCards"]);
+
 const gridSize = 20;
 const grid = ref(Array.from({ length: gridSize }, () => Array(gridSize).fill(null)));
-const pawnPosition1 = ref({ row: 0, col: 0 });
-const pawnPosition2 = ref({ row: gridSize - 1, col: gridSize - 1 });
-const goal1 = { row: gridSize - 1, col: gridSize - 1 };
-const goal2 = { row: 0, col: 0 };
+
+const playersPositions = ref(
+  Array.from({ length: playersCount }, (_, i) => ({
+    row: Math.floor((gridSize - 1) * i / (playersCount - 1 || 1)),
+    col: 0
+  }))
+);
+
+const playersGoals = Array.from({ length: playersCount }, (_, i) => ({
+  row: Math.floor((gridSize - 1) * i / (playersCount - 1 || 1)),
+  col: gridSize - 1
+}));
+
+const baseColors = ['purple', 'orange', 'blue', 'green', 'red', 'yellow'];
+const playersColors = Array.from({ length: playersCount }, (_, i) => baseColors[i % baseColors.length]);
+
 const winner = ref(null)
 const cardDirections = ['N', 'E', 'S', 'W'];
-const playerTurn = ref(1);
+const playerTurn = ref(0);
+
 const deck = [
   { type: 'N' },
   { type: 'N' }, 
@@ -112,22 +133,22 @@ const deck = [
     action: () => console.log("fromage"),
   }, 
 ];
-const cardsPlayer1 = ref(drawCards());
-const cardsPlayer2 = ref(drawCards());
-const currentCards = ref(cardsPlayer1.value);
+const drawCards = () => {
+  return [...Array(3)].map(() => deck[Math.floor(Math.random() * deck.length)]);
+};
+const playersCards = ref(Array.from({ length: playersCount }, () => drawCards()));
+let currentCards = ref(playersCards.value[playerTurn.value]);
+
 const showDirection = ref(false);
 const showDice = ref(false);
-function drawCards() {
-  return [...Array(3)].map(() => deck[Math.floor(Math.random() * deck.length)]);
-}
-const stealCard = () => {
-  if (playerTurn.value == 1) {
-    cardsPlayer1.value.push(cardsPlayer2.value.splice(0, 1)[0])
-  } else {
-    cardsPlayer2.value.push(cardsPlayer1.value.splice(0, 1)[0])
-  }
 
-}
+// const stealCard = () => {
+//   if (playerTurn.value == 1) {
+//     cardsPlayer1.value.push(cardsPlayer2.value.splice(0, 1)[0])
+//   } else {
+//     cardsPlayer2.value.push(cardsPlayer1.value.splice(0, 1)[0])
+//   }
+// }
 const rotateCompassCase = ref([
   { row : 1, col: 15 },
   { row : 2, col: 2 },
@@ -201,76 +222,44 @@ const entryTeleport = ref([
   { row : 18, col: 19 },
 ])
 
-const exit1 = reactive({ row : 5, col: 5 });
-const exit2 = reactive({ row : 14, col: 5 });
-const exit3 = reactive({ row : 5, col: 14 });
-const exit4 = reactive({ row : 14, col: 14 });
-const exit5 = reactive({ row : 18, col: 8 });
-const exit6 = reactive({ row : 1, col: 11 });
+const exits = [
+  { row: 5, col: 5 },
+  { row: 14, col: 5 },
+  { row: 5, col: 14 },
+  { row: 14, col: 14 },
+  { row: 18, col: 8 },
+  { row: 1, col: 11 }
+];
 
 const lockedWalls = ref([]);
 
-const isWall = (row, col) => {
-  return walls.value.some(wall => wall.row === row && wall.col === col);
+const isWall = (row, col) => walls.value.some(w => w.row === row && w.col === col);
+const isLockedWall = (row, col) => lockedWalls.value.some(w => w.row === row && w.col === col);
+
+const isGoal = (row, col) => {
+  const goal = playersGoals[playerTurn.value];
+  return row === goal.row && col === goal.col;
 };
+const isRotateCase = (row, col) => rotateCompassCase.value.some(c => c.row === row && c.col === col);
+const isDoubleCase = (row, col) => doubleRotateCompassCase.value.some(c => c.row === row && c.col === col);
+const isEntryPoint = (row, col) => entryTeleport.value.some(p => p.row === row && p.col === col);
+const isExit = (row, col) => exits.some(e => e.row === row && e.col === col);
 
-const isLockedWall = (row, col) => {
-  return lockedWalls.value.some(wall => wall.row === row && wall.col === col);
-};
-
-const isGoal1 = (row, col) => {
-  return row === goal1.row && col === goal1.col;
-};
-
-const isGoal2 = (row, col) => {
-  return row === goal2.row && col === goal2.col;
-};
-
-const isRotateCase = (row, col) => {
-  return rotateCompassCase.value.some(rotatecase => rotatecase.row === row && rotatecase.col === col);
-}
-const isDoubleCase = (row, col) => {
-  return doubleRotateCompassCase.value.some(rotatecase => rotatecase.row === row && rotatecase.col === col);
-}
-
-const isEntryPoint = (row, col) => {
-  return entryTeleport.value.some(point => point.row === row && point.col === col);
-}
-const isExit1 = (row, col) => {
-  return (exit1.row === row && exit1.col === col);
-}
-const isExit2 = (row, col) => {
-  return (exit2.row === row && exit2.col === col);
-}
-const isExit3 = (row, col) => {
-  return (exit3.row === row && exit3.col === col);
-}
-const isExit4 = (row, col) => {
-  return (exit4.row === row && exit4.col === col);
-}
-const isExit5 = (row, col) => {
-  return (exit5.row === row && exit5.col === col);
-}
-const isExit6 = (row, col) => {
-  return (exit6.row === row && exit6.col === col);
-}
 const movePawn = (pawn, rowChange, colChange) => {
-  console.log("pawn.row / paw.col",pawn.row +', '+ pawn.col)
-  console.log("rowChange, ColChange",rowChange+', '+ colChange)
   const newRow = pawn.row + rowChange;
   const newCol = pawn.col + colChange;
-  console.log("newRow newCol",newRow+', '+ newCol)
 
-  if (newRow === goal1.row && newCol === goal1.col && playerTurn.value === 1) {
-    winner.value = "Joueur 1";
+  // Condition de victoire pour le joueur courant
+  const goal = playersGoals[playerTurn.value];
+  if (newRow === goal.row && newCol === goal.col) {
+    winner.value = "Joueur " + (playerTurn.value + 1);
   }
-  if (newRow === goal2.row && newCol === goal2.col && playerTurn.value === 2) {
-    winner.value = "Joueur 2";
-  }
-  const wallIndex = walls.value.findIndex(wall => wall.row === newRow && wall.col === newCol);
+
+  const wallIndex = walls.value.findIndex(w => w.row === newRow && w.col === newCol);
   const rotateIndex = rotateCompassCase.value.findIndex(r => r.row === newRow && r.col === newCol);
   const doubleIndex = doubleRotateCompassCase.value.findIndex(r => r.row === newRow && r.col === newCol);
-  const entryIndex = entryTeleport.value.findIndex(r => r.row === newRow && r.col === newCol );
+  const entryIndex = entryTeleport.value.findIndex(p => p.row === newRow && p.col === newCol);
+
   if (doubleIndex !== -1) {
     rotateCompass(true);
     rotateCompass(true);
@@ -297,7 +286,6 @@ const movePawn = (pawn, rowChange, colChange) => {
     pawn.row = newRow;
     pawn.col = newCol;
   }
-  console.log('TEST',playerTurn.value, pawnPosition1.value, pawnPosition2.value);
 };
 
 const handleKeydown = (event) => {
@@ -315,7 +303,7 @@ const handleCardMovement = (direction) => {
   const index = cardDirections.indexOf(direction);
   if (index === -1) return;
   
-  const currentPawn = playerTurn.value === 1 ? pawnPosition1.value : pawnPosition2.value;
+  const currentPawn = playersPositions.value[playerTurn.value];
   switch (index) {
     case 0:
       movePawn(currentPawn, -1, 0);
@@ -333,56 +321,64 @@ const handleCardMovement = (direction) => {
 };
 
 const useCard = (cardValue) => {
-  if ( cardValue.type == 'special') {
+  if (cardValue.type === 'special') {
     cardValue.action();
   } else {
     handleCardMovement(cardValue.type);
   }
+  // Retire la carte jouée du jeu du joueur courant
   currentCards.value.splice(currentCards.value.indexOf(cardValue), 1);
-
-  emit("countCards", {player1 : cardsPlayer1.value.length, player2 :cardsPlayer2.value.length })
+  emit("countCards", playersCards.value.map(cards => cards.length));
 };
-
 const endTurn = () => {
-  const currentDeck = playerTurn.value === 1 ? cardsPlayer1 : cardsPlayer2;
-  while (currentDeck.value.length < 3 && deck.length > 0) {
-    currentDeck.value.push(deck[Math.floor(Math.random() * deck.length)]);
+  const currentDeck = playersCards.value[playerTurn.value];
+  while (currentDeck.length < 3 && deck.length > 0) {
+    currentDeck.push(deck[Math.floor(Math.random() * deck.length)]);
   }
-  playerTurn.value = playerTurn.value === 1 ? 2 : 1;
-  currentCards.value = playerTurn.value === 1 ? cardsPlayer1.value : cardsPlayer2.value;
-  emit("countCards", {player1 : cardsPlayer1.value.length, player2 :cardsPlayer2.value.length })
+  playerTurn.value = (playerTurn.value + 1) % playersCount;
+  currentCards.value = playersCards.value[playerTurn.value];
+  emit("countCards", playersCards.value.map(cards => cards.length));
 };
 defineExpose({ endTurn });
 
 const turnRight = () => {
-  rotateCompass(true)
+  rotateCompass(true);
   showDirection.value = false;
-}
-
+};
 const turnLeft = () => {
-  rotateCompass(false)
+  rotateCompass(false);
   showDirection.value = false;
-}
-
+};
 const rotateCompass = (clockwise) => {
-  clockwise ?
-    cardDirections.unshift(cardDirections.pop()) :
+  if (clockwise) {
+    cardDirections.unshift(cardDirections.pop());
+  } else {
     cardDirections.push(cardDirections.shift());
+  }
   emit("rotate", (clockwise ? 1 : -1) * 90);
 };
-
 const closeDice = () => {
   showDice.value = false;
-}
-
+};
 const closeDiceAndMove = (v) => {
   showDice.value = false;
-  const currentPawn = playerTurn.value === 1 ? pawnPosition1.value : pawnPosition2.value;
-  const findExit = eval("exit" + v);
-  currentPawn.row = 0;
-  currentPawn.col = 0;
-  movePawn(currentPawn, findExit.row, findExit.col );
-}
+  const currentPawn = playersPositions.value[playerTurn.value];
+  // Sélectionne une sortie selon la valeur fournie
+  const findExit = exits[v - 1];
+  if (findExit) {
+    // Par exemple, on repositionne le pion avant de le déplacer vers la sortie
+    currentPawn.row = 0;
+    currentPawn.col = 0;
+    movePawn(currentPawn, findExit.row, findExit.col);
+  }
+};
+const stealCard = () => {
+  // On choisit le prochain adversaire (parmi les autres joueurs)
+  const target = (playerTurn.value + 1) % playersCount;
+  if (playersCards.value[target].length > 0) {
+    playersCards.value[playerTurn.value].push(playersCards.value[target].splice(0, 1)[0]);
+  }
+};
 </script>
 
 <style scoped>
