@@ -15,14 +15,13 @@ import { defineProps, defineEmits } from 'vue';
 
 const props = defineProps({
   cardValue: {
-    type: Object,  // on s'assure ici que c'est bien un objet
+    type: Object, 
     required: true,
   },
   player: {
     type: Number,
     required: true
   },
-  // Nouvelle prop pour la couleur choisie par le joueur
   color: {
     type: String,
     required: true

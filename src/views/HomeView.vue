@@ -1,9 +1,16 @@
 <template>
   <div class="home">
-    <ChessBoard @rotate="rotateCompass" @count-cards="changeCards" ref="chessRef"/>
+    <ChessBoard 
+      @rotate="rotateCompass"
+      @count-cards="changeCards"
+      @deck-stats="updateDeckStats"
+      ref="chessRef"/>
     <div class="boussole">
       <img src="../assets/boussol.png" :style="{ transform: 'rotate(' + deg + 'deg)' }" alt="Boussole">
-      
+      <div class="deck-stats">
+        <p>Deck : {{ deckCount }} carte<span v-if="deckCount !== 1">s</span></p>
+        <p>Défausse : {{ discardCount }} carte<span v-if="discardCount !== 1">s</span></p>
+      </div>
       <div v-for="(player, index) in players" :key="index" class="player">
         <div class="nameColor">
           <div class="name">{{ player.name }} :</div>
@@ -26,8 +33,6 @@ import { useRoute } from 'vue-router';
 
 const route = useRoute();
 const playersCount = parseInt(route.query.players) || 2;
-
-// Récupération des noms et des couleurs depuis la query (séparées par des virgules)
 const namesQuery = route.query.names;
 const namesArr = namesQuery ? namesQuery.split(',') : [];
 
@@ -35,7 +40,8 @@ const colorsQuery = route.query.colors;
 const colorsArr = colorsQuery ? colorsQuery.split(',') : [];
 
 const baseColors = ['purple', 'orange', 'blue', 'green', 'red', 'yellow'];
-
+const deckCount = ref(0);
+const discardCount = ref(0);
 const players = ref(
   Array.from({ length: playersCount }, (_, i) => ({
     name: namesArr[i] || `Joueur ${i + 1}`,
@@ -63,6 +69,11 @@ const changeCards = (playersCards) => {
     cards: Array(playersCards[index]).fill(0)
   }));
 };
+
+const updateDeckStats = (stats) => {
+  deckCount.value = stats.deck;
+  discardCount.value = stats.discard;
+}
 </script>
 
 <style lang="scss">

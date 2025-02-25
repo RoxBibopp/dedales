@@ -77,12 +77,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import Pawn from './Pawn.vue';
 import PlayCard from './PlayCard.vue';
 import Dice from '../components/Dice.vue';
 import { defineEmits, defineExpose } from 'vue';
+import { 
+  wallsData,
+  rotateCompassData,
+  doubleRotateCompassData,
+  entryTeleportData
+} from '@/constants/config';
 
 const route = useRoute();
 const playersCount = parseInt(route.query.players) || 2; 
@@ -100,7 +106,7 @@ const players = computed(() => {
 const colorsQuery = route.query.colors;
 const colorsArr = colorsQuery ? colorsQuery.split(',') : [];
 
-const emit = defineEmits(["rotate", "countCards"]);
+const emit = defineEmits(["rotate", "countCards", "deck-stats"]);
 
 const gridSize = 20;
 const grid = ref(Array.from({ length: gridSize }, () => Array(gridSize).fill(null)));
@@ -162,13 +168,13 @@ const winner = ref(null)
 const cardDirections = ['N', 'E', 'S', 'W'];
 const playerTurn = ref(0);
 
-const deck = [
-  { type: 'N' },
-  { type: 'N' }, 
-  { type: 'N' }, 
-  { type: 'N' }, 
+const initialDeck = [
   { type: 'N' },
   { type: 'N' },
+  { type: 'N' },
+  { type: 'N' },
+  { type: 'N' },
+  { type: 'N' },
   { type: 'E' },
   { type: 'E' },
   { type: 'E' },
@@ -187,51 +193,48 @@ const deck = [
   { type: 'W' },
   { type: 'W' },
   { type: 'W' },
-  { type: 'special',
-    text: 'Volez une carte à un adversaire de votre choix',
-    action: () => initiateSteal()
-  },
-  { type: 'special',
-    text: 'Volez une carte à un adversaire de votre choix',
-    action: () => initiateSteal()
-  }, 
-  { type: 'special',
-    text: 'Volez une carte à un adversaire de votre choix',
-    action: () => initiateSteal()
-  }, 
-  { 
-    type: 'special',
-    text: 'Tournez la boussole d\'un quart de tour',
-    action: () => initiateCompassTurn()
-  }, 
-  { 
-    type: 'special',
-    text: 'Tournez la boussole d\'un quart de tour',
-    action: () => initiateCompassTurn()
-  }, 
-  { 
-    type: 'special',
-    text: 'Tournez la boussole d\'un quart de tour',
-    action: () => initiateCompassTurn()
-  }, 
-  { 
-    type: 'special',
-    text: 'Tournez la boussole d\'un tour complet',
-    action: () => initiateCompassFullTurn()
-  },  
-  { 
-    type: 'special',
-    text: 'Tournez la boussole d\'un tour complet',
-    action: () => initiateCompassFullTurn()
-  },  
-  { 
-    type: 'special',
-    text: 'Tournez la boussole d\'un tour complet',
-    action: () => initiateCompassFullTurn()
-  }, 
+  { type: 'special', text: 'Volez une carte à un adversaire de votre choix', action: () => initiateSteal() },
+  { type: 'special', text: 'Volez une carte à un adversaire de votre choix', action: () => initiateSteal() },
+  { type: 'special', text: 'Volez une carte à un adversaire de votre choix', action: () => initiateSteal() },
+  { type: 'special', text: 'Tournez la boussole d\'un quart de tour', action: () => initiateCompassTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un quart de tour', action: () => initiateCompassTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un quart de tour', action: () => initiateCompassTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un tour complet', action: () => initiateCompassFullTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un tour complet', action: () => initiateCompassFullTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un tour complet', action: () => initiateCompassFullTurn() }
 ];
+
+const shuffle = (arr) => {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+const deck = ref(shuffle([...initialDeck]));
+const discardPile = ref([]);
+
+const drawOneCard = () => {
+  if ( deck.value.length === 0) {
+    if ( discardPile.value.length === 0) {
+      return null
+    }
+    deck.value = shuffle(discardPile.value)
+    discardPile.value = []; 
+  }
+  return deck.value.pop();
+}
+
 const drawCards = () => {
-  return [...Array(3)].map(() => deck[Math.floor(Math.random() * deck.length)]);
+  const cards = [];
+  for (let i = 0; i < 3; i++) {
+    const card = drawOneCard();
+    if ( card ) {
+      cards.push(card);
+    }
+  }
+  return cards;
 };
 const playersCards = ref(Array.from({ length: playersCount }, () => drawCards()));
 let currentCards = ref(playersCards.value[playerTurn.value]);
@@ -268,78 +271,12 @@ const cancelSteal = () => {
   showStealModal.value = false;
 };
 
-const rotateCompassCase = ref([
-  { row : 1, col: 15 },
-  { row : 2, col: 2 },
-  { row : 2, col: 17 },
-  { row : 3, col: 7 },
-  { row : 3, col: 12 },
-  { row : 6, col: 15 },
-  { row : 7, col: 2 },
-  { row : 11, col: 2 },
-  { row : 11, col: 9 },
-  { row : 11, col: 18 },
-  { row : 14, col: 4 },
-  { row : 15, col: 10 },
-  { row : 17, col: 2 },
-  { row : 17, col: 15 },
-])
+const rotateCompassCase = ref(rotateCompassData)
 
-const doubleRotateCompassCase = ref([
-  { row : 3, col: 3 },
-  { row : 4, col: 15 },
-  { row : 8, col: 9 },
-  { row : 12, col: 13 },
-  { row : 16, col: 5 },
-  { row : 17, col: 13 },
-])
+const doubleRotateCompassCase = ref(doubleRotateCompassData)
 
-const walls = ref([
-  { row: 1, col: 1 }, { row: 1, col: 2 }, { row: 1, col: 6 },
-  { row: 1, col: 9 }, { row: 1, col: 10 }, { row: 1, col: 13 },
-  { row: 1, col: 17 }, { row: 1, col: 18 }, 
-  { row: 2, col: 1 },{ row: 2, col: 7 }, { row: 2, col: 12 }, 
-  { row: 2, col: 18 },
-  { row: 3, col: 1 }, { row: 3, col: 4 },{ row: 3, col: 8 },
-  { row: 3, col: 11 }, { row: 3, col: 15 }, { row: 3, col:18 },
-  { row: 4, col: 4 }, { row: 4, col: 16 },
-  { row: 5, col: 1 },{ row: 5, col: 6 }, { row: 5, col: 7 },
-  { row: 5, col: 8 }, { row: 5, col: 11 }, { row: 5, col: 12 },
-  { row: 5, col: 13 },  { row: 5, col: 18 },
-  { row: 6, col: 1 },{ row: 6, col: 2 }, { row: 6, col: 5 },
-  { row: 6, col: 14 }, { row: 6, col: 17 }, { row: 6, col: 18 },
-  { row: 7, col: 7 },{ row: 7, col: 8 }, { row: 7, col: 11 },
-  { row: 7, col: 12 },
-  { row: 8, col: 3 },{ row: 8, col: 7 }, { row: 8, col: 12 },
-  { row: 8, col: 16 },
-  { row: 9, col: 1 },{ row: 9, col: 4 }, { row: 9, col: 15 },
-  { row: 9, col: 18 },
-  { row: 10, col: 1 },{ row: 10, col: 4 }, { row: 10, col: 15 },
-  { row: 10, col: 18 },
-  { row: 11, col: 3 },{ row: 11, col: 7 }, { row: 11, col: 12 },
-  { row: 11, col: 16 },
-  { row: 12, col: 7 },{ row: 12, col: 8 }, { row: 12, col: 11 },
-  { row: 12, col: 12 },
-  { row: 13, col: 1 },{ row: 13, col: 2 }, { row: 13, col: 5 },
-  { row: 13, col: 14 }, { row: 13, col: 17 }, { row: 13, col: 18 },
-  { row: 14, col: 1 },{ row: 14, col: 6 }, { row: 14, col: 7 },
-  { row: 14, col: 8 }, { row: 14, col: 11 }, { row: 14, col: 12 },
-  { row: 14, col: 13 },  { row: 14, col: 18 },
-  { row: 15, col: 4 }, { row: 15, col: 16 },
-  { row: 16, col: 1 }, { row: 16, col: 4 },{ row: 16, col: 8 },
-  { row: 16, col: 11 }, { row: 16, col: 15 }, { row: 16, col:18 },
-  { row: 17, col: 1 },{ row: 17, col: 7 }, { row: 17, col: 12 }, 
-  { row: 17, col: 18 },
-  { row: 18, col: 1 }, { row: 18, col: 2 }, { row: 18, col: 6 },
-  { row: 18, col: 9 }, { row: 18, col: 10 }, { row: 18, col: 13 },
-  { row: 18, col: 17 }, { row: 18, col: 18 },
-]);
-const entryTeleport = ref([
-  { row : 5, col: 2 },
-  { row : 5, col: 17 },
-  { row : 14, col: 2 },
-  { row : 14, col: 17 },
-])
+const entryTeleport = ref(entryTeleportData);
+
 const exit1 = reactive({ row: 5, col: 5 });
 const exit2 = reactive({ row: 14, col: 5 });
 const exit3 = reactive({ row: 5, col: 14 });
@@ -347,6 +284,7 @@ const exit4 = reactive({ row: 14, col: 14 });
 const exit5 = reactive({ row: 18, col: 8 });
 const exit6 = reactive({ row: 1, col: 11 });
 
+const walls = ref(wallsData)
 const lockedWalls = ref([]);
 
 const isWall = (row, col) => {
@@ -374,7 +312,6 @@ const movePawn = (pawn, rowChange, colChange) => {
   const newRow = pawn.row + rowChange;
   const newCol = pawn.col + colChange;
 
-  // Condition de victoire pour le joueur courant
   const goal = playersGoals[playerTurn.value];
   if (newRow === goal.row && newCol === goal.col) {
     winner.value = "Joueur " + (playerTurn.value + 1);
@@ -451,18 +388,29 @@ const useCard = (cardValue) => {
   } else {
     handleCardMovement(cardValue.type);
   }
-  // Retire la carte jouée du jeu du joueur courant
-  currentCards.value.splice(currentCards.value.indexOf(cardValue), 1);
+  const index = currentCards.value.indexOf(cardValue);
+  if (index !== -1) {
+    currentCards.value.splice(index, 1);
+    discardPile.value.push(cardValue);
+  } 
   emit("countCards", playersCards.value.map(cards => cards.length));
+  updateDeckStats();
 };
+
 const endTurn = () => {
   const currentDeck = playersCards.value[playerTurn.value];
-  while (currentDeck.length < 3 && deck.length > 0) {
-    currentDeck.push(deck[Math.floor(Math.random() * deck.length)]);
+  while (currentDeck.length < 3 ) {
+    const card = drawOneCard();
+    if (card) {
+      currentDeck.push(card);
+    } else {
+      break;
+    }
   }
   playerTurn.value = (playerTurn.value + 1) % playersCount;
   currentCards.value = playersCards.value[playerTurn.value];
   emit("countCards", playersCards.value.map(cards => cards.length));
+  updateDeckStats();
 };
 defineExpose({ endTurn });
 
@@ -512,6 +460,13 @@ const initiateCompassFullTurn = () => {
   rotateCompass(true);
   rotateCompass(true);
 }
+
+const updateDeckStats = () => {
+  emit("deck-stats", { deck: deck.value.length, discard: discardPile.value.length });
+};
+onMounted(() => {
+  updateDeckStats();
+});
 </script>
 
 <style scoped>
