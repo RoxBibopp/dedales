@@ -5,7 +5,7 @@
     </div>
     <div v-if="showDirection" class="win">
       <div class="winmodal chooseModal">
-        <div class="txt">choisissez une direction :</div>
+        <div class="txt">Choisissez une direction :</div>
         <div class="arrows">
           <div @click="turnLeft"><</div>
           <div @click="turnRight">></div>
@@ -16,6 +16,18 @@
       @closeDice="closeDice"
       @closeDiceAndMove="closeDiceAndMove"
     />
+    <div v-if="showStealModal" class="modal">
+      <div class="modal-content">
+        <h3>Choisissez un joueur pour voler une carte</h3>
+        <ul>
+          <li v-for="(p, index) in stealCandidates" :key="index" @click="confirmSteal(index)">
+            <span class="color-preview" :style="{ backgroundColor: p.color }"></span>
+            {{ p.name }} ({{ playersCards[p.absoluteIndex].length }} cartes)
+          </li>
+        </ul>
+        <button @click="cancelSteal">Annuler</button>
+      </div>
+    </div>
     <div
       class="chessboard"
       @keydown="handleKeydown"
@@ -26,62 +38,145 @@
           v-for="(cell, colIndex) in row"
           :key="'cell-' + rowIndex + '-' + colIndex"
           class="cell"
-         :class="
-            { 
-              wall: isWall(colIndex, rowIndex),
-              locked: isLockedWall(colIndex, rowIndex),
-              goal1: isGoal1(colIndex, rowIndex),
-              goal2: isGoal2(colIndex, rowIndex),
-              rotate: isRotateCase(colIndex, rowIndex),
-              double: isDoubleCase(colIndex, rowIndex),
-              entry: isEntryPoint(colIndex, rowIndex),
-              exit1: isExit1(colIndex, rowIndex),
-              exit2: isExit2(colIndex, rowIndex),
-              exit3: isExit3(colIndex, rowIndex),
-              exit4: isExit4(colIndex, rowIndex),
-              exit5: isExit5(colIndex, rowIndex),
-              exit6: isExit6(colIndex, rowIndex),
-            }"
+          :class="{
+            goal: isGoal(colIndex, rowIndex),
+            wall: isWall(colIndex, rowIndex),
+            locked: isLockedWall(colIndex, rowIndex),
+            rotate: isRotateCase(colIndex, rowIndex),
+            double: isDoubleCase(colIndex, rowIndex),
+            entry: isEntryPoint(colIndex, rowIndex),
+            exit1: isExit1(colIndex, rowIndex),
+            exit2: isExit2(colIndex, rowIndex),
+            exit3: isExit3(colIndex, rowIndex),
+            exit4: isExit4(colIndex, rowIndex),
+            exit5: isExit5(colIndex, rowIndex),
+            exit6: isExit6(colIndex, rowIndex)
+          }"
+          :style="getGoalStyle(colIndex, rowIndex)"
         ></div>
       </div>
-      <Pawn :pawnPosition="pawnPosition1" :color="'purple'"/>
-      <Pawn :pawnPosition="pawnPosition2" :color="'orange'"/>
+      <Pawn
+        v-for="(pawn, index) in playersPositions"
+        :key="'pawn-' + index"
+        :pawnPosition="pawn"
+        :color="playersColors[index]"
+      />
     </div>
     <div>
       <PlayCard
         v-for="(card, index) in currentCards"
         class="playCard"
         :card-value="card"
-        :player="playerTurn"
+        :player="playerTurn + 1"
         @usecard="useCard"
-        :style="{'left': 860 + (index * 150) +'px'}"
+        :style="{ left: 860 + (index * 150) + 'px' }"
+        :color="playersColors[playerTurn]"
       />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import Pawn from './Pawn.vue';
-import { defineEmits } from "vue";
 import PlayCard from './PlayCard.vue';
-import Dice from '../components/Dice.vue'
+import Dice from '../components/Dice.vue';
+import { defineEmits, defineExpose } from 'vue';
+import { 
+  wallsData,
+  rotateCompassData,
+  doubleRotateCompassData,
+  entryTeleportData
+} from '@/constants/config';
 
-const emit = defineEmits(["rotate", "countCards"]);
+const route = useRoute();
+const playersCount = parseInt(route.query.players) || 2; 
+
+const namesQuery = route.query.names;
+const namesArr = namesQuery ? namesQuery.split(',') : [];
+
+const players = computed(() => {
+  return Array.from({ length: playersCount }, (_, i) => ({
+    name: namesArr[i] || `Joueur ${i + 1}`,
+    color: playersColors[i]
+  }));
+});
+
+const colorsQuery = route.query.colors;
+const colorsArr = colorsQuery ? colorsQuery.split(',') : [];
+
+const emit = defineEmits(["rotate", "countCards", "deck-stats"]);
+
 const gridSize = 20;
 const grid = ref(Array.from({ length: gridSize }, () => Array(gridSize).fill(null)));
-const pawnPosition1 = ref({ row: 0, col: 0 });
-const pawnPosition2 = ref({ row: gridSize - 1, col: gridSize - 1 });
-const goal1 = { row: gridSize - 1, col: gridSize - 1 };
-const goal2 = { row: 0, col: 0 };
+
+let positions, goals;
+
+if (playersCount === 2) {
+  positions = [
+    { row: 0, col: 0 },
+    { row: gridSize - 1, col: gridSize - 1 }
+  ];
+  goals = [
+    { row: gridSize - 1, col: gridSize - 1 },
+    { row: 0, col: 0 },
+  ];
+} else if (playersCount === 3) {
+  positions = [
+    { row: 0, col: 0 },
+    { row: gridSize - 1, col: gridSize - 1 },
+    { row: 0, col: gridSize - 1 }
+  ];
+  goals = [
+    { row: gridSize - 1, col: gridSize - 1 },
+    { row: 0, col: 0 },
+    { row: gridSize - 1, col: 0 }
+  ];
+} else if (playersCount === 4) {
+  positions = [
+    { row: 0, col: 0 },
+    { row: gridSize - 1, col: gridSize - 1 },
+    { row: 0, col: gridSize - 1 },
+    { row: gridSize - 1, col: 0 }
+  ];
+  goals = [
+    { row: gridSize - 1, col: gridSize - 1 },
+    { row: 0, col: 0 },
+    { row: gridSize - 1, col: 0 },
+    { row: 0, col: gridSize - 1 }
+  ];
+} else {
+  positions = Array.from({ length: playersCount }, (_, i) => ({
+    row: Math.floor((gridSize - 1) * i / (playersCount - 1 || 1)),
+    col: 0
+  }));
+  goals = Array.from({ length: playersCount }, (_, i) => ({
+    row: Math.floor((gridSize - 1) * i / (playersCount - 1 || 1)),
+    col: gridSize - 1
+  }));
+}
+
+const playersPositions = ref(positions);
+const playersGoals = goals;
+const baseColors = ['purple', 'orange', 'blue', 'green', 'red', 'yellow'];
+const playersColors = colorsArr.length
+  ? colorsArr
+  : Array.from({ length: playersCount }, (_, i) => baseColors[i % baseColors.length]);
+
 const winner = ref(null)
 const cardDirections = ['N', 'E', 'S', 'W'];
-const playerTurn = ref(1);
-const deck = [
+const playerTurn = ref(0);
+
+const initialDeck = [
   { type: 'N' },
-  { type: 'N' }, 
   { type: 'N' },
   { type: 'N' },
+  { type: 'N' },
+  { type: 'N' },
+  { type: 'N' },
+  { type: 'E' },
+  { type: 'E' },
   { type: 'E' },
   { type: 'E' },
   { type: 'E' },
@@ -90,124 +185,106 @@ const deck = [
   { type: 'S' },
   { type: 'S' },
   { type: 'S' },
+  { type: 'S' },
+  { type: 'S' },
   { type: 'W' },
   { type: 'W' },
   { type: 'W' },
   { type: 'W' },
-  { type: 'special',
-    text: 'Volez une carte à un adversaire de votre choix',
-    action: () => stealCard()
-  },
-  { type: 'special',
-    text: 'Volez une carte à un adversaire de votre choix',
-    action: () => stealCard()
-  }, 
-  { type: 'special',
-    text: 'Volez une carte à un adversaire de votre choix',
-    action: () => stealCard()
-  }, 
-  { 
-    type: 'special',
-    text: 'Cette carte dit fromage dans la console',
-    action: () => console.log("fromage"),
-  }, 
+  { type: 'W' },
+  { type: 'W' },
+  { type: 'special', text: 'Volez une carte à un adversaire de votre choix', action: () => initiateSteal() },
+  { type: 'special', text: 'Volez une carte à un adversaire de votre choix', action: () => initiateSteal() },
+  { type: 'special', text: 'Volez une carte à un adversaire de votre choix', action: () => initiateSteal() },
+  { type: 'special', text: 'Tournez la boussole d\'un quart de tour', action: () => initiateCompassTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un quart de tour', action: () => initiateCompassTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un quart de tour', action: () => initiateCompassTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un tour complet', action: () => initiateCompassFullTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un tour complet', action: () => initiateCompassFullTurn() },
+  { type: 'special', text: 'Tournez la boussole d\'un tour complet', action: () => initiateCompassFullTurn() }
 ];
-const cardsPlayer1 = ref(drawCards());
-const cardsPlayer2 = ref(drawCards());
-const currentCards = ref(cardsPlayer1.value);
+
+const shuffle = (arr) => {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+const deck = ref(shuffle([...initialDeck]));
+const discardPile = ref([]);
+
+const drawOneCard = () => {
+  if ( deck.value.length === 0) {
+    if ( discardPile.value.length === 0) {
+      return null
+    }
+    deck.value = shuffle(discardPile.value)
+    discardPile.value = []; 
+  }
+  return deck.value.pop();
+}
+
+const drawCards = () => {
+  const cards = [];
+  for (let i = 0; i < 3; i++) {
+    const card = drawOneCard();
+    if ( card ) {
+      cards.push(card);
+    }
+  }
+  return cards;
+};
+const playersCards = ref(Array.from({ length: playersCount }, () => drawCards()));
+let currentCards = ref(playersCards.value[playerTurn.value]);
+
 const showDirection = ref(false);
 const showDice = ref(false);
-function drawCards() {
-  return [...Array(3)].map(() => deck[Math.floor(Math.random() * deck.length)]);
-}
-const stealCard = () => {
-  if (playerTurn.value == 1) {
-    cardsPlayer1.value.push(cardsPlayer2.value.splice(0, 1)[0])
-  } else {
-    cardsPlayer2.value.push(cardsPlayer1.value.splice(0, 1)[0])
+const showStealModal = ref(false);
+
+const initiateSteal = () => {
+  showStealModal.value = true;
+};
+const stealCandidates = computed(() => {
+  const candidates = [];
+  for (let i = 0; i < playersCount; i++) {
+    if (i !== playerTurn.value) {
+      candidates.push({ ...players.value[i], absoluteIndex: i });
+    }
   }
+  return candidates;
+});
 
-}
-const rotateCompassCase = ref([
-  { row : 1, col: 15 },
-  { row : 2, col: 2 },
-  { row : 2, col: 17 },
-  { row : 3, col: 7 },
-  { row : 3, col: 12 },
-  { row : 6, col: 15 },
-  { row : 7, col: 2 },
-  { row : 11, col: 2 },
-  { row : 11, col: 9 },
-  { row : 11, col: 18 },
-  { row : 14, col: 4 },
-  { row : 15, col: 10 },
-  { row : 17, col: 2 },
-  { row : 17, col: 15 },
-])
+const confirmSteal = (relativeIndex) => {
+  const candidate = stealCandidates.value[relativeIndex];
+  const targetIndex = candidate.absoluteIndex;
+  if (playersCards.value[targetIndex].length > 0) {
+    playersCards.value[playerTurn.value].push(
+      playersCards.value[targetIndex].splice(0, 1)[0]
+    );
+  }
+  showStealModal.value = false;
+  emit("countCards", playersCards.value.map(cards => cards.length));
+};
+const cancelSteal = () => {
+  showStealModal.value = false;
+};
 
-const doubleRotateCompassCase = ref([
-  { row : 3, col: 3 },
-  { row : 4, col: 15 },
-  { row : 8, col: 9 },
-  { row : 12, col: 13 },
-  { row : 16, col: 5 },
-  { row : 17, col: 13 },
-])
+const rotateCompassCase = ref(rotateCompassData)
 
-const walls = ref([
-  { row: 1, col: 1 }, { row: 1, col: 2 }, { row: 1, col: 6 },
-  { row: 1, col: 9 }, { row: 1, col: 10 }, { row: 1, col: 13 },
-  { row: 1, col: 17 }, { row: 1, col: 18 }, 
-  { row: 2, col: 1 },{ row: 2, col: 7 }, { row: 2, col: 12 }, 
-  { row: 2, col: 18 },
-  { row: 3, col: 1 }, { row: 3, col: 4 },{ row: 3, col: 8 },
-  { row: 3, col: 11 }, { row: 3, col: 15 }, { row: 3, col:18 },
-  { row: 4, col: 4 }, { row: 4, col: 16 },
-  { row: 5, col: 1 },{ row: 5, col: 6 }, { row: 5, col: 7 },
-  { row: 5, col: 8 }, { row: 5, col: 11 }, { row: 5, col: 12 },
-  { row: 5, col: 13 },  { row: 5, col: 18 },
-  { row: 6, col: 1 },{ row: 6, col: 2 }, { row: 6, col: 5 },
-  { row: 6, col: 14 }, { row: 6, col: 17 }, { row: 6, col: 18 },
-  { row: 7, col: 7 },{ row: 7, col: 8 }, { row: 7, col: 11 },
-  { row: 7, col: 12 },
-  { row: 8, col: 3 },{ row: 8, col: 7 }, { row: 8, col: 12 },
-  { row: 8, col: 16 },
-  { row: 9, col: 1 },{ row: 9, col: 4 }, { row: 9, col: 15 },
-  { row: 9, col: 18 },
-  { row: 10, col: 1 },{ row: 10, col: 4 }, { row: 10, col: 15 },
-  { row: 10, col: 18 },
-  { row: 11, col: 3 },{ row: 11, col: 7 }, { row: 11, col: 12 },
-  { row: 11, col: 16 },
-  { row: 12, col: 7 },{ row: 12, col: 8 }, { row: 12, col: 11 },
-  { row: 12, col: 12 },
-  { row: 13, col: 1 },{ row: 13, col: 2 }, { row: 13, col: 5 },
-  { row: 13, col: 14 }, { row: 13, col: 17 }, { row: 13, col: 18 },
-  { row: 14, col: 1 },{ row: 14, col: 6 }, { row: 14, col: 7 },
-  { row: 14, col: 8 }, { row: 14, col: 11 }, { row: 14, col: 12 },
-  { row: 14, col: 13 },  { row: 14, col: 18 },
-  { row: 15, col: 4 }, { row: 15, col: 16 },
-  { row: 16, col: 1 }, { row: 16, col: 4 },{ row: 16, col: 8 },
-  { row: 16, col: 11 }, { row: 16, col: 15 }, { row: 16, col:18 },
-  { row: 17, col: 1 },{ row: 17, col: 7 }, { row: 17, col: 12 }, 
-  { row: 17, col: 18 },
-  { row: 18, col: 1 }, { row: 18, col: 2 }, { row: 18, col: 6 },
-  { row: 18, col: 9 }, { row: 18, col: 10 }, { row: 18, col: 13 },
-  { row: 18, col: 17 }, { row: 18, col: 18 },
-]);
-const entryTeleport = ref([
-  { row : 5, col: 2 },
-  { row : 5, col: 17 },
-  { row : 14, col: 2 },
-  { row : 18, col: 19 },
-])
+const doubleRotateCompassCase = ref(doubleRotateCompassData)
 
-const exit1 = reactive({ row : 5, col: 5 });
-const exit2 = reactive({ row : 14, col: 5 });
-const exit3 = reactive({ row : 5, col: 14 });
-const exit4 = reactive({ row : 14, col: 14 });
-const exit5 = reactive({ row : 18, col: 8 });
-const exit6 = reactive({ row : 1, col: 11 });
+const entryTeleport = ref(entryTeleportData);
 
+const exit1 = reactive({ row: 5, col: 5 });
+const exit2 = reactive({ row: 14, col: 5 });
+const exit3 = reactive({ row: 5, col: 14 });
+const exit4 = reactive({ row: 14, col: 14 });
+const exit5 = reactive({ row: 18, col: 8 });
+const exit6 = reactive({ row: 1, col: 11 });
+
+const walls = ref(wallsData)
 const lockedWalls = ref([]);
 
 const isWall = (row, col) => {
@@ -218,59 +295,33 @@ const isLockedWall = (row, col) => {
   return lockedWalls.value.some(wall => wall.row === row && wall.col === col);
 };
 
-const isGoal1 = (row, col) => {
-  return row === goal1.row && col === goal1.col;
+const isGoal = (row, col) => {
+  return playersGoals.some(goal => goal.row === row && goal.col === col);
 };
+const isRotateCase = (row, col) => rotateCompassCase.value.some(c => c.row === row && c.col === col);
+const isDoubleCase = (row, col) => doubleRotateCompassCase.value.some(c => c.row === row && c.col === col);
+const isEntryPoint = (row, col) => entryTeleport.value.some(p => p.row === row && p.col === col);
+const isExit1 = (row, col) => (exit1.row === row && exit1.col === col);
+const isExit2 = (row, col) => (exit2.row === row && exit2.col === col);
+const isExit3 = (row, col) => (exit3.row === row && exit3.col === col);
+const isExit4 = (row, col) => (exit4.row === row && exit4.col === col);
+const isExit5 = (row, col) => (exit5.row === row && exit5.col === col);
+const isExit6 = (row, col) => (exit6.row === row && exit6.col === col);
 
-const isGoal2 = (row, col) => {
-  return row === goal2.row && col === goal2.col;
-};
-
-const isRotateCase = (row, col) => {
-  return rotateCompassCase.value.some(rotatecase => rotatecase.row === row && rotatecase.col === col);
-}
-const isDoubleCase = (row, col) => {
-  return doubleRotateCompassCase.value.some(rotatecase => rotatecase.row === row && rotatecase.col === col);
-}
-
-const isEntryPoint = (row, col) => {
-  return entryTeleport.value.some(point => point.row === row && point.col === col);
-}
-const isExit1 = (row, col) => {
-  return (exit1.row === row && exit1.col === col);
-}
-const isExit2 = (row, col) => {
-  return (exit2.row === row && exit2.col === col);
-}
-const isExit3 = (row, col) => {
-  return (exit3.row === row && exit3.col === col);
-}
-const isExit4 = (row, col) => {
-  return (exit4.row === row && exit4.col === col);
-}
-const isExit5 = (row, col) => {
-  return (exit5.row === row && exit5.col === col);
-}
-const isExit6 = (row, col) => {
-  return (exit6.row === row && exit6.col === col);
-}
 const movePawn = (pawn, rowChange, colChange) => {
-  console.log("pawn.row / paw.col",pawn.row +', '+ pawn.col)
-  console.log("rowChange, ColChange",rowChange+', '+ colChange)
   const newRow = pawn.row + rowChange;
   const newCol = pawn.col + colChange;
-  console.log("newRow newCol",newRow+', '+ newCol)
 
-  if (newRow === goal1.row && newCol === goal1.col && playerTurn.value === 1) {
-    winner.value = "Joueur 1";
+  const goal = playersGoals[playerTurn.value];
+  if (newRow === goal.row && newCol === goal.col) {
+    winner.value = "Joueur " + (playerTurn.value + 1);
   }
-  if (newRow === goal2.row && newCol === goal2.col && playerTurn.value === 2) {
-    winner.value = "Joueur 2";
-  }
-  const wallIndex = walls.value.findIndex(wall => wall.row === newRow && wall.col === newCol);
+
+  const wallIndex = walls.value.findIndex(w => w.row === newRow && w.col === newCol);
   const rotateIndex = rotateCompassCase.value.findIndex(r => r.row === newRow && r.col === newCol);
   const doubleIndex = doubleRotateCompassCase.value.findIndex(r => r.row === newRow && r.col === newCol);
-  const entryIndex = entryTeleport.value.findIndex(r => r.row === newRow && r.col === newCol );
+  const entryIndex = entryTeleport.value.findIndex(p => p.row === newRow && p.col === newCol);
+
   if (doubleIndex !== -1) {
     rotateCompass(true);
     rotateCompass(true);
@@ -297,7 +348,6 @@ const movePawn = (pawn, rowChange, colChange) => {
     pawn.row = newRow;
     pawn.col = newCol;
   }
-  console.log('TEST',playerTurn.value, pawnPosition1.value, pawnPosition2.value);
 };
 
 const handleKeydown = (event) => {
@@ -315,7 +365,7 @@ const handleCardMovement = (direction) => {
   const index = cardDirections.indexOf(direction);
   if (index === -1) return;
   
-  const currentPawn = playerTurn.value === 1 ? pawnPosition1.value : pawnPosition2.value;
+  const currentPawn = playersPositions.value[playerTurn.value];
   switch (index) {
     case 0:
       movePawn(currentPawn, -1, 0);
@@ -333,56 +383,90 @@ const handleCardMovement = (direction) => {
 };
 
 const useCard = (cardValue) => {
-  if ( cardValue.type == 'special') {
+  if (cardValue.type === 'special') {
     cardValue.action();
   } else {
     handleCardMovement(cardValue.type);
   }
-  currentCards.value.splice(currentCards.value.indexOf(cardValue), 1);
-
-  emit("countCards", {player1 : cardsPlayer1.value.length, player2 :cardsPlayer2.value.length })
+  const index = currentCards.value.indexOf(cardValue);
+  if (index !== -1) {
+    currentCards.value.splice(index, 1);
+    discardPile.value.push(cardValue);
+  } 
+  emit("countCards", playersCards.value.map(cards => cards.length));
+  updateDeckStats();
 };
 
 const endTurn = () => {
-  const currentDeck = playerTurn.value === 1 ? cardsPlayer1 : cardsPlayer2;
-  while (currentDeck.value.length < 3 && deck.length > 0) {
-    currentDeck.value.push(deck[Math.floor(Math.random() * deck.length)]);
+  const currentDeck = playersCards.value[playerTurn.value];
+  while (currentDeck.length < 3 ) {
+    const card = drawOneCard();
+    if (card) {
+      currentDeck.push(card);
+    } else {
+      break;
+    }
   }
-  playerTurn.value = playerTurn.value === 1 ? 2 : 1;
-  currentCards.value = playerTurn.value === 1 ? cardsPlayer1.value : cardsPlayer2.value;
-  emit("countCards", {player1 : cardsPlayer1.value.length, player2 :cardsPlayer2.value.length })
+  playerTurn.value = (playerTurn.value + 1) % playersCount;
+  currentCards.value = playersCards.value[playerTurn.value];
+  emit("countCards", playersCards.value.map(cards => cards.length));
+  updateDeckStats();
 };
 defineExpose({ endTurn });
 
 const turnRight = () => {
-  rotateCompass(true)
+  rotateCompass(true);
   showDirection.value = false;
-}
-
+};
 const turnLeft = () => {
-  rotateCompass(false)
+  rotateCompass(false);
   showDirection.value = false;
-}
-
+};
 const rotateCompass = (clockwise) => {
-  clockwise ?
-    cardDirections.unshift(cardDirections.pop()) :
+  if (clockwise) {
+    cardDirections.unshift(cardDirections.pop());
+  } else {
     cardDirections.push(cardDirections.shift());
+  }
   emit("rotate", (clockwise ? 1 : -1) * 90);
 };
-
 const closeDice = () => {
   showDice.value = false;
-}
-
+};
 const closeDiceAndMove = (v) => {
   showDice.value = false;
-  const currentPawn = playerTurn.value === 1 ? pawnPosition1.value : pawnPosition2.value;
+  const currentPawn = playersPositions.value[playerTurn.value];
   const findExit = eval("exit" + v);
-  currentPawn.row = 0;
-  currentPawn.col = 0;
-  movePawn(currentPawn, findExit.row, findExit.col );
+  if (findExit) {
+    currentPawn.row = 0;
+    currentPawn.col = 0;
+    movePawn(currentPawn, findExit.row, findExit.col);
+  }
+};
+
+
+const getGoalStyle = (row, col) => {
+  const goalIndex = playersGoals.findIndex(goal => goal.row === row && goal.col === col);
+  if (goalIndex !== -1) {
+    return { backgroundColor: playersColors[goalIndex] };
+  }
+  return {};
+};
+
+const initiateCompassTurn = () => {
+  showDirection.value = true;
+};
+const initiateCompassFullTurn = () => {
+  rotateCompass(true);
+  rotateCompass(true);
 }
+
+const updateDeckStats = () => {
+  emit("deck-stats", { deck: deck.value.length, discard: discardPile.value.length });
+};
+onMounted(() => {
+  updateDeckStats();
+});
 </script>
 
 <style scoped>
@@ -435,6 +519,9 @@ const closeDiceAndMove = (v) => {
 }
 .goal2 {
   background-color: orange;
+}
+.goal {
+  background-color: pink;
 }
 .rotate {
   background-color: #e7e7e7;
@@ -547,4 +634,46 @@ const closeDiceAndMove = (v) => {
   background: url('../assets/d6.jpg');
   background-size: contain;
 }
+/* Styles pour la modale de vol */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.modal-content ul {
+  list-style: none;
+  padding: 0;
+}
+
+.modal-content li {
+  cursor: pointer;
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+}
+
+.color-preview {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
 </style>
