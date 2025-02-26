@@ -16,21 +16,22 @@ const props = defineProps({
   }
 });
 
-const cellSize = 40;
+const cellSize = 41;
 
 const pawnStyle = computed(() => ({
   position: 'absolute',
   top: props.pawnPosition.row * cellSize + 'px',
   left: props.pawnPosition.col * cellSize + 'px',
   backgroundColor: props.color,
-  width: cellSize + 'px',
-  height: cellSize + 'px'
+  width: 40 + 'px',
+  height: 40 + 'px'
 }));
 </script>
 
 <style scoped>
 .pawn {
   border-radius: 50%;
+  transition: .5s;
   /* Vous pouvez ajouter d'autres styles ici */
 }
 </style>
