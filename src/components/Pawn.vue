@@ -1,36 +1,36 @@
 <template>
-  <div
-    class="pawn"
-    :style="{
-      top: `${pawnPosition.row * 40}px`,
-      left: `${pawnPosition.col * 41}px`,
-      backgroundColor: `${color}`
-    }"
-  ></div>
+  <div v-if="pawnPosition" class="pawn" :style="pawnStyle"></div>
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
   pawnPosition: {
     type: Object,
-    required: true,
+    required: true
   },
   color: {
     type: String,
-    required: true,
+    required: true
   }
 });
 
+const cellSize = 40;
+
+const pawnStyle = computed(() => ({
+  position: 'absolute',
+  top: props.pawnPosition.row * cellSize + 'px',
+  left: props.pawnPosition.col * cellSize + 'px',
+  backgroundColor: props.color,
+  width: cellSize + 'px',
+  height: cellSize + 'px'
+}));
 </script>
 
 <style scoped>
 .pawn {
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  transition: .5s;
   border-radius: 50%;
+  /* Vous pouvez ajouter d'autres styles ici */
 }
 </style>
