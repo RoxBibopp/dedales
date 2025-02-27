@@ -32,6 +32,5 @@ const pawnStyle = computed(() => ({
 .pawn {
   border-radius: 50%;
   transition: .5s;
-  /* Vous pouvez ajouter d'autres styles ici */
 }
 </style>

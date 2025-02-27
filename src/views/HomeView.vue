@@ -75,7 +75,6 @@ onMounted(() => {
 });
 
 socket.on('updateGameState', (state) => {
-  console.log('État du jeu mis à jour', state);
   deckCount.value = state.deck.length !== undefined ? state.deck.length : state.deck;
   discardCount.value = state.discardPile.length !== undefined ? state.discardPile.length : state.discard;
   players.value = Object.values(state.players);

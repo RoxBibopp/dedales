@@ -3,7 +3,33 @@
     <div v-if="gameState.winner" class="win">
       <div class="winmodal">{{ gameState.winner }} a gagné !</div>
     </div>
-
+    <div v-if="gameState.showDice">
+      <Dice
+        :active="isMyTurn"
+        :gameId="gameId"
+        :serverDiceValue="gameState.diceValue"
+        @closeDice="handleCloseDice"
+        @closeDiceAndMove="handleCloseDiceAndMove"
+      />
+    </div>
+    <div v-if="gameState.showStealModal && isMyStealer" class="modal">
+      <div class="modal-content">
+        <h3>Choisissez un joueur pour voler une carte</h3>
+        <ul>
+          <li v-for="(p, index) in stealCandidates" :key="index" @click="confirmSteal(p.socketId)">
+            <span class="color-preview" :style="{ backgroundColor: p.color }"></span>
+            {{ p.name }} ({{ p.handCount }} cartes)
+          </li>
+        </ul>
+        <button @click="cancelSteal">Annuler</button>
+      </div>
+    </div>
+    <!-- Pour les autres joueurs, affiche un message -->
+    <div v-if="gameState.showStealModal && !isMyStealer" class="modal">
+      <div class="modal-content">
+        <h3>L'adversaire choisit un joueur pour voler une carte</h3>
+      </div>
+    </div>
     <div class="chessboard">
       <div v-for="(row, rowIndex) in grid" :key="'row-' + rowIndex" class="row">
         <div
@@ -35,16 +61,17 @@
       />
     </div>
     <div class="hand">
-      <h3>Ma main ({{ myHand.length }} cartes)</h3>
-      <div 
+      <PlayCard
+        v-for="(card, index) in myHand"
         class="playCard"
-        v-for="(card, index) in myHand" 
+        :id="'card-' + index"
         :key="index"
-        @click="playCard(index)"
-        style="cursor: pointer; border:1px solid #333; padding:5px; margin:5px;">
-        {{ card.type }}
-      </div>
-      
+        :card-value="card"
+        :player="playerTurn + 1"
+        :style="{ left: 860 + (index * 150) + 'px' }"
+        :color="myColor"
+        @usecard="playCard(index, card)"
+      />
     </div>
     <div v-if="gameState.showDirection && isMyTurn" class="modal-rotation">
       <div class="modal-content">
@@ -69,13 +96,23 @@ import { defineProps, defineEmits } from 'vue';
 import { useRoute } from 'vue-router';
 import socket from '@/socket'; 
 import Pawn from './Pawn.vue';
-import { wallsData as localWallsData, rotateCompassData as localRotateCompassData, doubleRotateCompassData as localDoubleRotateCompassData, entryTeleportData as localEntryTeleportData } from '@/constants/config';
+import PlayCard from './PlayCard.vue';
+import Dice from './Dice.vue';
+import { 
+  wallsData as localWallsData,
+  rotateCompassData as localRotateCompassData,
+  doubleRotateCompassData as localDoubleRotateCompassData,
+  entryTeleportData as localEntryTeleportData 
+} from '@/constants/config';
 
 const route = useRoute();
 const playersCount = parseInt(route.query.players) || 2;
 const namesArr = route.query.names ? route.query.names.split(',') : [];
 const colorsArr = route.query.colors ? route.query.colors.split(',') : [];
-
+const playerTurn = computed(() => gameState.value.playerTurn);
+const myColor = computed(() => {
+  return gameState.value.players[socket.id]?.color || 'gray';
+});
 const props = defineProps({
   gameState: {
     type: Object,
@@ -134,18 +171,20 @@ const isEntryPoint = (col, row) => {
   return entries.some(p => p.row === row && p.col === col);
 };
 
-const exit1 = { row: 5, col: 5 };
-const exit2 = { row: 14, col: 5 };
-const exit3 = { row: 5, col: 14 };
-const exit4 = { row: 14, col: 14 };
-const exit5 = { row: 18, col: 8 };
-const exit6 = { row: 1, col: 11 };
-const isExit1 = (col, row) => exit1.row === row && exit1.col === col;
-const isExit2 = (col, row) => exit2.row === row && exit2.col === col;
-const isExit3 = (col, row) => exit3.row === row && exit3.col === col;
-const isExit4 = (col, row) => exit4.row === row && exit4.col === col;
-const isExit5 = (col, row) => exit5.row === row && exit5.col === col;
-const isExit6 = (col, row) => exit6.row === row && exit6.col === col;
+const exits = {
+  1: { row: 5, col: 5 },
+  2: { row: 14, col: 5 },
+  3: { row: 5, col: 14 },
+  4: { row: 14, col: 14 },
+  5: { row: 18, col: 8 },
+  6: { row: 1, col: 11 }
+};
+const isExit1 = (col, row) => exits[1].row === row && exits[1].col === col;
+const isExit2 = (col, row) => exits[2].row === row && exits[2].col === col;
+const isExit3 = (col, row) => exits[3].row === row && exits[3].col === col;
+const isExit4 = (col, row) => exits[4].row === row && exits[4].col === col;
+const isExit5 = (col, row) => exits[5].row === row && exits[5].col === col;
+const isExit6 = (col, row) => exits[6].row === row && exits[6].col === col;
 
 function getGoalStyle(col, row) {
   const goals = gameState.value.playersGoals || [];
@@ -180,11 +219,10 @@ onMounted(() => {
 
 
 socket.on('updateGameState', (state) => {
-  console.log('État du jeu mis à jour', state);
   gameState.value = state;
 });
 
-function playCard(index) {
+function playCard(index, cardValue) {
   if (!isMyTurn.value) {
     alert("Ce n'est pas votre tour !");
     return;
@@ -196,14 +234,51 @@ function playCard(index) {
   });
 }
 
-function endTurn() {
-  if (!isMyTurn.value) return;
-  socket.emit('playerAction', { 
-    gameId, 
-    action: 'endTurn', 
-    payload: {} 
-  });
+const handleCloseDice = () => {
+  socket.emit('diceAction', { gameId, action: "closeDice" })
 }
+
+const handleCloseDiceAndMove = (data) => {
+  socket.emit('closeDiceAndMove', data)
+}
+
+const isMyStealer = computed(() => {
+  return props.gameState.stealer === socket.id;
+});
+
+const stealCandidates = computed(() => {
+  const candidates = [];
+  for (const id in props.gameState.players) {
+    if (id !== socket.id) {
+      const player = props.gameState.players[id];
+      candidates.push({ 
+        socketId: id,
+        name: player.name,
+        color: player.color,
+        handCount: player.hand ? player.hand.length : 0
+      });
+    }
+  }
+  return candidates;
+});
+const confirmSteal = (targetSocketId) => {
+  socket.emit('confirmSteal', { gameId, targetSocketId });
+};
+
+const cancelSteal = () => {
+  socket.emit('cancelSteal', { gameId });
+};
+
+socket.on('moveImpossible', (data) => {
+  const { index, message } = data;
+  const cardElement = document.getElementById('card-' + index);
+  if (cardElement) {
+    cardElement.classList.add('wrongCard');
+    setTimeout(() => {
+      cardElement.classList.remove('wrongCard');
+    }, 500);
+  }
+});
 </script>
 
 <style scoped>
@@ -277,7 +352,17 @@ function endTurn() {
   margin-bottom: 20px;
 }
 .playCard {
-  display: inline-block;
+  user-select: none;
+  position: absolute;
+  bottom: 10px;
+  left: 20%;
+  border: 7px solid rgb(255, 255, 255);
+  transition: .3s;
+}
+.playCard:hover {
+  cursor: pointer;
+  bottom: 30px;
+  border: 7px solid rgb(64, 238, 6);
 }
 .controls {
   margin-top: 20px;
@@ -339,5 +424,52 @@ function endTurn() {
 }
 .modal-content .arrows div:hover {
   font-size: 44px;
+}
+
+.entry {
+  background: url('../assets/door.png');
+  background-size: contain;
+}
+.exit1 {
+  background: url('../assets/d1.png');
+  background-size: contain;
+}
+.exit2 {
+  background: url('../assets/d2.png');
+  background-size: contain;
+}
+.exit3 {
+  background: url('../assets/d3.png');
+  background-size: contain;
+}
+.exit4 {
+  background: url('../assets/d4.jpg');
+  background-size: contain;
+}
+.exit5 {
+  background: url('../assets/d5.jpg');
+  background-size: contain;
+}
+.exit6 {
+  background: url('../assets/d6.jpg');
+  background-size: contain;
+}
+.wrongCard {
+  animation: wrong 0.5s linear;
+  border: 7px solid red !important;
+  color: red !important;
+}
+@keyframes wrong {
+  0%   { transform: translateX(0); }
+  10%  { transform: translateX(10px); }
+  20%  { transform: translateX(-10px); }
+  30%  { transform: translateX(10px); }
+  40%  { transform: translateX(-10px); }
+  50%  { transform: translateX(10px); }
+  60%  { transform: translateX(-10px); }
+  70%  { transform: translateX(10px); }
+  80%  { transform: translateX(-10px); }
+  90%  { transform: translateX(10px); }
+  100% { transform: translateX(0); }
 }
 </style>
