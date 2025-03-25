@@ -12,7 +12,6 @@
         <label>Votre nom :</label>
         <input v-model="organizerName" placeholder="Nom de l'organisateur" />
         <label>Votre couleur :</label>
-  
         <ColorSelect v-model="organizerColor" :colors="baseColors" />
         <button @click="createRoom">Créer la salle</button>
         <div v-if="createdRoomCode" class="room-code">
@@ -20,7 +19,6 @@
         </div>
       </div>
     </div>
-
 
     <div class="join-room">
       <h2 @click="showJoinRoom = true" class="joinCreate">Rejoindre une salle</h2>
@@ -30,7 +28,6 @@
         <label>Votre nom :</label>
         <input v-model="playerName" placeholder="Votre nom" />
         <label>Votre couleur :</label>
-
         <ColorSelect v-model="playerColor" :colors="baseColors" />
         <button @click="joinRoom">Rejoindre la salle</button>
       </div>
@@ -47,8 +44,8 @@ import socket from '@/socket';
 import ColorSelect from '../components/ColorSelect.vue';
 
 const router = useRouter();
-const showCreateRoom = ref(false)
-const showJoinRoom = ref(false)
+const showCreateRoom = ref(false);
+const showJoinRoom = ref(false);
 
 const baseColors = ['purple', 'orange', 'blue', 'green', 'red', 'yellow'];
 
@@ -79,31 +76,29 @@ const joinRoom = () => {
   });
 };
 
+// Dès que le serveur envoie une mise à jour, on redirige vers le lobby de salle
+socket.on('updateGameState', (state) => {
+  // On suppose que state contient bien la propriété roomCode
+  if (state.roomCode) {
+    // On redirige vers la vue du lobby en passant le roomCode
+    router.push({
+      name: 'roomlobby',
+      query: {
+        roomCode: state.roomCode
+      }
+    });
+  }
+});
+
 socket.on('roomCreated', (data) => {
   createdRoomCode.value = data.roomCode;
 });
-
 
 socket.on('errorMessage', (data) => {
   errorMessage.value = data.message;
 });
 
-socket.on('startGame', (state) => {
-  const names = Object.values(state.players).map(player => player.name);
-  const colors = Object.values(state.players).map(player => player.color);
-  console.log("Noms envoyés :", names);
-  console.log("Couleurs envoyées :", colors);
-  
-  router.push({
-    name: 'game',
-    query: {
-      roomCode: joinRoomCode.value || createdRoomCode.value,
-      players: state.expectedPlayers,
-      names: names.join(','),
-      colors: colors.join(',')
-    }
-  });
-});
+// Ici, on ne redirige plus directement vers "game", le lobby gère la redirection ultérieure
 </script>
 
 <style scoped>

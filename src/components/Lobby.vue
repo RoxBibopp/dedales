@@ -1,16 +1,20 @@
 <template>
-  <div class="lobby">
-    <h1>Lobby</h1>
-    <div class="create">
+  <div class="home-lobby">
+    <h1>Bienvenue</h1>
+    <div class="options">
+      <button @click="mode = 'create'">Créer une salle</button>
+      <button @click="mode = 'join'">Rejoindre une salle</button>
+    </div>
+    <div v-if="mode === 'create'" class="create">
       <h2>Créer une salle</h2>
       <input v-model="organizerName" placeholder="Votre nom" />
       <input v-model="organizerColor" placeholder="Votre couleur (ex: blue)" />
       <input v-model.number="expectedPlayers" placeholder="Nombre de joueurs" type="number" />
-      <button @click="createRoom">Créer la salle</button>
+      <button @click="createRoom">Créer</button>
     </div>
-    <div class="join">
+    <div v-else-if="mode === 'join'" class="join">
       <h2>Rejoindre une salle</h2>
-      <input v-model="roomCode" placeholder="Code de la salle" />
+      <input v-model="roomCodeInput" placeholder="Code de la salle" />
       <input v-model="playerName" placeholder="Votre nom" />
       <input v-model="playerColor" placeholder="Votre couleur" />
       <button @click="joinRoom">Rejoindre</button>
@@ -20,23 +24,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref } from 'vue';
 import socket from '@/socket';
+import { useRouter } from 'vue-router';
 
+const mode = ref(null); // "create" ou "join"
 const organizerName = ref('');
 const organizerColor = ref('');
-const expectedPlayers = ref(3);  // Par exemple, 3 joueurs
+const expectedPlayers = ref(3);
 
-const roomCode = ref('');
+const roomCodeInput = ref('');
 const playerName = ref('');
 const playerColor = ref('');
 const errorMessage = ref('');
 
 const router = useRouter();
 
-// Fonction pour créer la salle
+// Créer une salle
 const createRoom = () => {
+  errorMessage.value = '';
   socket.emit('createRoom', {
     expectedPlayers: expectedPlayers.value,
     organizerName: organizerName.value,
@@ -44,55 +50,50 @@ const createRoom = () => {
   });
 };
 
-// Fonction pour rejoindre la salle
+// Rejoindre une salle
 const joinRoom = () => {
+  errorMessage.value = '';
+  console.log('joinRoom appelé avec', roomCodeInput.value, playerName.value, playerColor.value);
   socket.emit('joinRoom', {
-    roomCode: roomCode.value,
+    roomCode: roomCodeInput.value,
     playerName: playerName.value,
     playerColor: playerColor.value
   });
 };
 
-// Attacher le listener dès le montage pour être sûr de ne rien manquer
-onMounted(() => {
-  socket.on('roomCreated', (data) => {
-    console.log('Salle créée :', data.roomCode);
-    roomCode.value = data.roomCode;  // Mémorise le roomCode
-  });
+// Listener commun pour récupérer l'état de la salle
+socket.on('updateGameState', (state) => {
+  console.log('updateGameState reçu :', state);
+  // On redirige vers le lobby de salle dès qu'on reçoit un roomCode
+  if (state.roomCode) {
+    router.push({ name: 'roomLobby', query: { roomCode: state.roomCode } });
+  }
+});
 
-  socket.on('startGame', (state) => {
-    console.log('startGame reçu, état:', state);
-    // Prépare la redirection avec les données du serveur
-    const names = Object.values(state.players).map(player => player.name);
-    const colors = Object.values(state.players).map(player => player.color);
-    router.push({
-      name: 'game',
-      query: {
-        roomCode: data?.roomCode || roomCode.value, // Si roomCreated a été reçu
-        players: state.expectedPlayers,
-        names: names.join(','),
-        colors: colors.join(',')
-      }
-    });
-  });
-
-  socket.on('errorMessage', (data) => {
-    errorMessage.value = data.message;
-  });
+socket.on('errorMessage', (data) => {
+  errorMessage.value = data.message;
 });
 </script>
 
 <style scoped>
-.lobby {
+.home-lobby {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 20px;
+}
+.options button {
+  margin: 10px;
+  padding: 10px 20px;
 }
 .create, .join {
-  margin: 20px;
+  margin-top: 20px;
+  border: 1px solid #ccc;
+  padding: 20px;
+  border-radius: 5px;
 }
 .error {
   color: red;
-  font-weight: bold;
+  margin-top: 20px;
 }
 </style>
