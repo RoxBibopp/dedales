@@ -10,7 +10,7 @@
         <p>Défausse : {{ discardCount }} carte<span v-if="discardCount !== 1">s</span></p>
       </div>
       
-      <div v-for="(player, index) in players" :key="index" class="player">
+      <div v-for="(player, index) in orderedPlayers" :key="index" class="player">
         <div class="nameColor">
           <div class="name">{{ player.name }} :</div>
           <div class="color" :style="{ backgroundColor: player.color }"></div>
@@ -43,7 +43,7 @@ const namesArr = namesQuery ? namesQuery.split(',') : [];
 const colorsQuery = route.query.colors;
 const colorsArr = colorsQuery ? colorsQuery.split(',') : [];
 
-const gameId = 'game1';
+const gameId = route.query.roomCode;
 
 const deckCount = ref(0);
 const discardCount = ref(0);
@@ -65,6 +65,19 @@ const compassDeg = computed(() => {
   return gameState.value.rotationCount * 90;
 });
 
+const orderedPlayers = computed(() => {
+  const ordered = [];
+  const state = gameState.value;
+  if (state.playerOrder && state.players) {
+    state.playerOrder.forEach(id => {
+      if (state.players[id]) {
+        ordered.push(state.players[id]);
+      }
+    });
+  }
+  return ordered;
+});
+
 onMounted(() => {
   socket.emit('joinGame', { 
     gameId, 
@@ -75,9 +88,9 @@ onMounted(() => {
 });
 
 socket.on('updateGameState', (state) => {
+  console.log("UPDATE GAME STATE: ", gameState.value.players);
   deckCount.value = state.deck.length !== undefined ? state.deck.length : state.deck;
   discardCount.value = state.discardPile.length !== undefined ? state.discardPile.length : state.discard;
-  players.value = Object.values(state.players);
   gameState.value = state;
 });
 

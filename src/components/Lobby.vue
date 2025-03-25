@@ -20,13 +20,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import socket from '@/socket';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import socket from '@/socket';
 
 const organizerName = ref('');
 const organizerColor = ref('');
-const expectedPlayers = ref(2);
+const expectedPlayers = ref(3);  // Par exemple, 3 joueurs
 
 const roomCode = ref('');
 const playerName = ref('');
@@ -35,7 +35,7 @@ const errorMessage = ref('');
 
 const router = useRouter();
 
-// Créer une salle
+// Fonction pour créer la salle
 const createRoom = () => {
   socket.emit('createRoom', {
     expectedPlayers: expectedPlayers.value,
@@ -44,13 +44,7 @@ const createRoom = () => {
   });
 };
 
-// Écouter l'événement roomCreated pour récupérer le code de salle
-socket.on('roomCreated', (data) => {
-  // On peut rediriger vers la vue de lobby en passant le code de salle
-  router.push({ name: 'Lobby', query: { roomCode: data.roomCode } });
-});
-
-// Rejoindre une salle
+// Fonction pour rejoindre la salle
 const joinRoom = () => {
   socket.emit('joinRoom', {
     roomCode: roomCode.value,
@@ -59,9 +53,32 @@ const joinRoom = () => {
   });
 };
 
-// Écouter d'éventuels messages d'erreur
-socket.on('errorMessage', (data) => {
-  errorMessage.value = data.message;
+// Attacher le listener dès le montage pour être sûr de ne rien manquer
+onMounted(() => {
+  socket.on('roomCreated', (data) => {
+    console.log('Salle créée :', data.roomCode);
+    roomCode.value = data.roomCode;  // Mémorise le roomCode
+  });
+
+  socket.on('startGame', (state) => {
+    console.log('startGame reçu, état:', state);
+    // Prépare la redirection avec les données du serveur
+    const names = Object.values(state.players).map(player => player.name);
+    const colors = Object.values(state.players).map(player => player.color);
+    router.push({
+      name: 'game',
+      query: {
+        roomCode: data?.roomCode || roomCode.value, // Si roomCreated a été reçu
+        players: state.expectedPlayers,
+        names: names.join(','),
+        colors: colors.join(',')
+      }
+    });
+  });
+
+  socket.on('errorMessage', (data) => {
+    errorMessage.value = data.message;
+  });
 });
 </script>
 

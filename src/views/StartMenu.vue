@@ -98,6 +98,7 @@ socket.on('startGame', (state) => {
     name: 'game',
     query: {
       roomCode: joinRoomCode.value || createdRoomCode.value,
+      players: state.expectedPlayers,
       names: names.join(','),
       colors: colors.join(',')
     }

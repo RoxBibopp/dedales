@@ -121,7 +121,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['rotateCompass']);
-const gameId = 'game1';
+const gameId = route.query.roomCode;
 
 const gameState = ref({
   deck: 0,
