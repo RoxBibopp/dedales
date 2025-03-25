@@ -36,7 +36,7 @@ const selectColor = (color) => {
 watch(
   () => props.modelValue,
   (newVal) => {
-    // pas de traitement particulier ici si nécessaire
+
   }
 );
 </script>

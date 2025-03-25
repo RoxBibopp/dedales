@@ -1,70 +1,152 @@
 <template>
-  <div>
-    <h1>Choisissez le nombre de joueurs</h1>
-    <select v-model="playersCount">
-      <option :value="2">2 Joueurs</option>
-      <option :value="3">3 Joueurs</option>
-      <option :value="4">4 Joueurs</option>
-    </select>
-    <div v-for="(player, index) in playersSettings" :key="index" style="margin: 10px 0;">
-      <label>Nom du joueur {{ index + 1 }} :</label>
-      <input v-model="player.name" placeholder="Entrez le nom" />
-      <label>Couleur :</label>
-      <ColorSelect v-model="player.color" :colors="baseColors" />
+  <div class="lobby-view">
+    <div class="create-room">
+      <h2 @click="showCreateRoom = true" class="joinCreate">Créer une salle</h2>
+      <div v-if="showCreateRoom">
+        <label>Nombre de joueurs :</label>
+        <select v-model="expectedPlayers">
+          <option :value="2">2 Joueurs</option>
+          <option :value="3">3 Joueurs</option>
+          <option :value="4">4 Joueurs</option>
+        </select>
+        <label>Votre nom :</label>
+        <input v-model="organizerName" placeholder="Nom de l'organisateur" />
+        <label>Votre couleur :</label>
+  
+        <ColorSelect v-model="organizerColor" :colors="baseColors" />
+        <button @click="createRoom">Créer la salle</button>
+        <div v-if="createdRoomCode" class="room-code">
+          <p>Salle créée : <strong>{{ createdRoomCode }}</strong></p>
+        </div>
+      </div>
     </div>
-    <button @click="startGame">Démarrer la partie</button>
+
+
+    <div class="join-room">
+      <h2 @click="showJoinRoom = true" class="joinCreate">Rejoindre une salle</h2>
+      <div v-if="showJoinRoom">
+        <label>Code de la salle :</label>
+        <input v-model="joinRoomCode" placeholder="Entrez le code" />
+        <label>Votre nom :</label>
+        <input v-model="playerName" placeholder="Votre nom" />
+        <label>Votre couleur :</label>
+
+        <ColorSelect v-model="playerColor" :colors="baseColors" />
+        <button @click="joinRoom">Rejoindre la salle</button>
+      </div>
+    </div>
+
+    <div v-if="errorMessage" class="error">{{ errorMessage }}</div>
   </div>
 </template>
 
-
 <script setup>
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import socket from '@/socket';
 import ColorSelect from '../components/ColorSelect.vue';
 
 const router = useRouter();
-const playersCount = ref(2);
+const showCreateRoom = ref(false)
+const showJoinRoom = ref(false)
+
 const baseColors = ['purple', 'orange', 'blue', 'green', 'red', 'yellow'];
 
-const playersSettings = ref([
-  { name: '', color: baseColors[0] },
-  { name: '', color: baseColors[1] }
-]);
+const expectedPlayers = ref(2);
+const organizerName = ref('');
+const organizerColor = ref(baseColors[0]);
 
-watch(playersCount, (newCount, oldCount) => {
-  if (newCount > oldCount) {
-    for (let i = oldCount; i < newCount; i++) {
-      playersSettings.value.push({
-        name: '',
-        color: baseColors[i % baseColors.length]
-      });
-    }
-  } else if (newCount < oldCount) {
-    playersSettings.value.splice(newCount);
-  }
+const joinRoomCode = ref('');
+const playerName = ref('');
+const playerColor = ref(baseColors[1]);
+
+const createdRoomCode = ref('');
+const errorMessage = ref('');
+
+const createRoom = () => {
+  socket.emit('createRoom', {
+    expectedPlayers: expectedPlayers.value,
+    organizerName: organizerName.value,
+    organizerColor: organizerColor.value
+  });
+};
+
+const joinRoom = () => {
+  socket.emit('joinRoom', {
+    roomCode: joinRoomCode.value,
+    playerName: playerName.value,
+    playerColor: playerColor.value
+  });
+};
+
+socket.on('roomCreated', (data) => {
+  createdRoomCode.value = data.roomCode;
 });
 
-const startGame = () => {
-  const names = playersSettings.value.map((player, index) => player.name || `Joueur ${index + 1}`);
-  const colors = playersSettings.value.map(player => player.color);
+
+socket.on('errorMessage', (data) => {
+  errorMessage.value = data.message;
+});
+
+socket.on('startGame', (state) => {
+  const names = Object.values(state.players).map(player => player.name);
+  const colors = Object.values(state.players).map(player => player.color);
+  console.log("Noms envoyés :", names);
+  console.log("Couleurs envoyées :", colors);
+  
   router.push({
     name: 'game',
     query: {
-      players: playersCount.value,
+      roomCode: joinRoomCode.value || createdRoomCode.value,
+      players: state.expectedPlayers,
       names: names.join(','),
       colors: colors.join(',')
     }
   });
-};
+});
 </script>
 
 <style scoped>
-.color-preview {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  margin-left: 10px;
+.lobby-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: Arial, sans-serif;
+}
+.create-room, .join-room {
   border: 1px solid #ccc;
-  border-radius: 50%;
+  padding: 20px;
+  margin: 20px;
+  width: 300px;
+  border-radius: 5px;
+}
+label {
+  display: block;
+  margin-top: 10px;
+}
+input, select {
+  width: 100%;
+  padding: 5px;
+  margin-top: 5px;
+}
+button {
+  margin-top: 15px;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+.error {
+  color: red;
+  font-weight: bold;
+  margin-top: 20px;
+}
+.room-code {
+  margin-top: 15px;
+  background: #f0f0f0;
+  padding: 10px;
+  border-radius: 5px;
+  text-align: center;
+}
+.joinCreate:hover {
+  cursor: pointer;
 }
 </style>

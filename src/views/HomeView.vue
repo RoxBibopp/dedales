@@ -1,79 +1,117 @@
 <template>
   <div class="home">
-    <ChessBoard 
-      @rotate="rotateCompass"
-      @count-cards="changeCards"
-      @deck-stats="updateDeckStats"
-      ref="chessRef"/>
+    <ChessBoard :gameState="gameState" @rotateCompass="handleRotateCompass" ref="chessRef" />
+    
     <div class="boussole">
-      <img src="../assets/boussol.png" :style="{ transform: 'rotate(' + deg + 'deg)' }" alt="Boussole">
+      <img src="../assets/boussol.png" :style="{ transform: 'rotate(' + compassDeg + 'deg)' }" alt="Boussole">
+
       <div class="deck-stats">
         <p>Deck : {{ deckCount }} carte<span v-if="deckCount !== 1">s</span></p>
         <p>Défausse : {{ discardCount }} carte<span v-if="discardCount !== 1">s</span></p>
       </div>
-      <div v-for="(player, index) in players" :key="index" class="player">
+      
+      <div v-for="(player, index) in orderedPlayers" :key="index" class="player">
         <div class="nameColor">
           <div class="name">{{ player.name }} :</div>
           <div class="color" :style="{ backgroundColor: player.color }"></div>
         </div>
         <div class="cards">
-          <div v-for="(card, idx) in player.cards" :key="idx" class="card" :style="{ backgroundColor: player.color }"></div>
+          <div 
+            v-for="(card, idx) in player.hand" 
+            :key="idx" 
+            class="card" 
+            :style="{ backgroundColor: player.color }">
+          </div>
         </div>
       </div>
-      
-      <div @click="triggerEndTurn" class="end-turn">Finir le tour</div>
+      <div v-if="isMyTurn" @click="triggerEndTurn" class="end-turn">Finir le tour</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import ChessBoard from '@/components/ChessBoard.vue';
+import { ref, onMounted, computed } from 'vue';
+
 import { useRoute } from 'vue-router';
+import ChessBoard from '@/components/ChessBoard.vue';
+import socket from '@/socket';
 
 const route = useRoute();
 const playersCount = parseInt(route.query.players) || 2;
 const namesQuery = route.query.names;
 const namesArr = namesQuery ? namesQuery.split(',') : [];
-
 const colorsQuery = route.query.colors;
 const colorsArr = colorsQuery ? colorsQuery.split(',') : [];
 
-const baseColors = ['purple', 'orange', 'blue', 'green', 'red', 'yellow'];
+const gameId = route.query.roomCode;
+
 const deckCount = ref(0);
 const discardCount = ref(0);
-const players = ref(
-  Array.from({ length: playersCount }, (_, i) => ({
-    name: namesArr[i] || `Joueur ${i + 1}`,
-    color: colorsArr[i] || baseColors[i % baseColors.length],
-    cards: Array(3).fill(0)
-  }))
-);
+const players = ref([]);
 
 const chessRef = ref(null);
 const deg = ref(0);
 
+const gameState = ref({
+  deck: 0,
+  discardPile: 0,
+  players: {},
+  playerOrder: [],
+  playerTurn: 0,
+  winner: null,
+  cardDirections: ['N', 'E', 'S', 'W']
+});
+const compassDeg = computed(() => {
+  return gameState.value.rotationCount * 90;
+});
+
+const orderedPlayers = computed(() => {
+  const ordered = [];
+  const state = gameState.value;
+  if (state.playerOrder && state.players) {
+    state.playerOrder.forEach(id => {
+      if (state.players[id]) {
+        ordered.push(state.players[id]);
+      }
+    });
+  }
+  return ordered;
+});
+
+onMounted(() => {
+  socket.emit('joinGame', { 
+    gameId, 
+    playersCount, 
+    names: namesArr, 
+    colors: colorsArr 
+  });
+});
+
+socket.on('updateGameState', (state) => {
+  console.log("UPDATE GAME STATE: ", gameState.value.players);
+  deckCount.value = state.deck.length !== undefined ? state.deck.length : state.deck;
+  discardCount.value = state.discardPile.length !== undefined ? state.discardPile.length : state.discard;
+  gameState.value = state;
+});
+
+const isMyTurn = computed(() => {
+  if (!gameState.value.playerOrder || gameState.value.playerOrder.length === 0) return false;
+  return gameState.value.playerOrder[gameState.value.playerTurn] === socket.id;
+});
+
 const triggerEndTurn = () => {
   if (chessRef.value) {
-    chessRef.value.endTurn();
+    socket.emit('playerAction', { 
+      gameId, 
+      action: 'endTurn', 
+      payload: {} 
+    });
   }
 };
 
-const rotateCompass = (r) => {
-  deg.value += r;
+const handleRotateCompass = (data) => {
+  socket.emit('rotateCompass', { gameId, clockwise: data.clockwise });
 };
-
-const changeCards = (playersCards) => {
-  players.value = players.value.map((player, index) => ({
-    ...player,
-    cards: Array(playersCards[index]).fill(0)
-  }));
-};
-
-const updateDeckStats = (stats) => {
-  deckCount.value = stats.deck;
-  discardCount.value = stats.discard;
-}
 </script>
 
 <style lang="scss">
