@@ -176,8 +176,8 @@ const exits = {
   2: { row: 14, col: 5 },
   3: { row: 5, col: 14 },
   4: { row: 14, col: 14 },
-  5: { row: 18, col: 8 },
-  6: { row: 1, col: 11 }
+  5: { row: 18, col: 12 },
+  6: { row: 1, col: 7 }
 };
 const isExit1 = (col, row) => exits[1].row === row && exits[1].col === col;
 const isExit2 = (col, row) => exits[2].row === row && exits[2].col === col;

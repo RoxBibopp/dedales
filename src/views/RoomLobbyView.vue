@@ -27,21 +27,15 @@ const route = useRoute();
 // On récupère le roomCode depuis la query
 const roomCode = ref(route.query.roomCode || '');
 const gameState = ref({ players: {}, expectedPlayers: 0, roomCode: roomCode.value });
-const roomName = ref(''); // Vous pouvez définir ici un nom de partie si désiré
+const roomName = ref('');
 
-// Nombre de joueurs actuels
 const currentPlayers = computed(() => Object.keys(gameState.value.players).length);
 
-// Vérifier si l'utilisateur est le créateur (premier dans playerOrder)
 const isCreator = computed(() => {
   return gameState.value.playerOrder && gameState.value.playerOrder[0] === socket.id;
 });
 
-// Émettre un update pour rejoindre la salle (si nécessaire)
 onMounted(() => {
-  // Vous pouvez émettre un join ici si vous ne l'avez pas déjà fait
-  // Par exemple, vous pouvez rediriger ici en fonction de la query, mais normalement le join est déjà fait via HomeLobby.
-  
   socket.on('updateGameState', (state) => {
     console.log('updateGameState (RoomLobby) reçu :', state);
     gameState.value = state;
