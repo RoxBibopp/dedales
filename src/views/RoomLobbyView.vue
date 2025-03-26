@@ -24,7 +24,6 @@ import socket from '@/socket';
 const router = useRouter();
 const route = useRoute();
 
-// On récupère le roomCode depuis la query
 const roomCode = ref(route.query.roomCode || '');
 const gameState = ref({ players: {}, expectedPlayers: 0, roomCode: roomCode.value });
 const roomName = ref('');
@@ -46,7 +45,6 @@ onMounted(() => {
   
   socket.on('startGame', (state) => {
     console.log('startGame (RoomLobby) reçu, état :', state);
-    // Désactive les listeners pour éviter qu'ils ne déclenchent d'autres mises à jour
     socket.off('updateGameState');
     socket.off('startGame');
     
@@ -70,7 +68,6 @@ onMounted(() => {
   socket.emit('getState', { roomCode: roomCode.value });
 });
 
-// Fonction pour démarrer la partie (pour le créateur)
 const startGame = () => {
   socket.emit('startGame', { gameId: roomCode.value });
 };
