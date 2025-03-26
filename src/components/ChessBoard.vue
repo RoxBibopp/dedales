@@ -12,12 +12,12 @@
         @closeDiceAndMove="handleCloseDiceAndMove"
       />
     </div>
-    <div v-if="gameState.showStealModal && isMyStealer" class="modal">
+    <div v-if="gameState.showStealModal && isMyStealer" class="modal-rotation">
       <div class="modal-content">
         <h3>Choisissez un joueur pour voler une carte</h3>
         <ul>
-          <li v-for="(p, index) in stealCandidates" :key="index" @click="confirmSteal(p.socketId)">
-            <span class="color-preview" :style="{ backgroundColor: p.color }"></span>
+          <li v-for="(p, index) in stealCandidates" :key="index" @click="confirmSteal(p.socketId)" class="listitem">
+            <div class="color-preview" :style="{ backgroundColor: p.color }"></div>
             {{ p.name }} ({{ p.handCount }} cartes)
           </li>
         </ul>
@@ -25,7 +25,7 @@
       </div>
     </div>
     <!-- Pour les autres joueurs, affiche un message -->
-    <div v-if="gameState.showStealModal && !isMyStealer" class="modal">
+    <div v-if="gameState.showStealModal && !isMyStealer" class="modal-rotation">
       <div class="modal-content">
         <h3>L'adversaire choisit un joueur pour voler une carte</h3>
       </div>
@@ -97,6 +97,7 @@ import { useRoute } from 'vue-router';
 import socket from '@/socket'; 
 import Pawn from './Pawn.vue';
 import PlayCard from './PlayCard.vue';
+import StealModal from './StealModal.vue';
 import Dice from './Dice.vue';
 import { 
   wallsData as localWallsData,
@@ -282,6 +283,12 @@ socket.on('moveImpossible', (data) => {
 </script>
 
 <style scoped>
+.color-preview {
+  height: 15px;
+  width: 15px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
 .home {
   font-family: Arial, sans-serif;
   padding: 20px;
@@ -425,7 +432,17 @@ socket.on('moveImpossible', (data) => {
 .modal-content .arrows div:hover {
   font-size: 44px;
 }
-
+.listitem {
+  list-style-type: none;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: .2s;
+  margin-bottom: 20px;
+}
+.listitem:hover {
+  transform: scale(1.05);
+}
 .entry {
   background: url('../assets/door.png');
   background-size: contain;
