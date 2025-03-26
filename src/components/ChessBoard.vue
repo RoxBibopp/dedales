@@ -97,7 +97,6 @@ import { useRoute } from 'vue-router';
 import socket from '@/socket'; 
 import Pawn from './Pawn.vue';
 import PlayCard from './PlayCard.vue';
-import StealModal from './StealModal.vue';
 import Dice from './Dice.vue';
 import { 
   wallsData as localWallsData,
