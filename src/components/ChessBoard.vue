@@ -120,7 +120,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['rotateCompass']);
+const emit = defineEmits(['rotateCompass', 'sendColor']);
 const gameId = route.query.roomCode;
 
 const gameState = ref({
@@ -215,6 +215,7 @@ onMounted(() => {
     names: namesArr, 
     colors: colorsArr 
   });
+  emit('sendColor', { myColor });
 });
 
 
