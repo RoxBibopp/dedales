@@ -1,6 +1,6 @@
 <template>
   <div class="home">
-    <ChessBoard :gameState="gameState" @rotateCompass="handleRotateCompass" ref="chessRef" />
+    <ChessBoard :gameState="gameState" @rotateCompass="handleRotateCompass" @sendColor="handleColor" ref="chessRef" />
     
     <div class="boussole">
       <img src="../assets/boussol.png" :style="{ transform: 'rotate(' + compassDeg + 'deg)' }" alt="Boussole">
@@ -26,12 +26,13 @@
       </div>
       <div v-if="isMyTurn" @click="triggerEndTurn" class="end-turn">Finir le tour</div>
     </div>
+    <Chat :playercolor="myColor.myColor" :room="gameId"/>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-
+import Chat from '@/components/Chat.vue';
 import { useRoute } from 'vue-router';
 import ChessBoard from '@/components/ChessBoard.vue';
 import socket from '@/socket';
@@ -42,7 +43,7 @@ const namesQuery = route.query.names;
 const namesArr = namesQuery ? namesQuery.split(',') : [];
 const colorsQuery = route.query.colors;
 const colorsArr = colorsQuery ? colorsQuery.split(',') : [];
-
+const myColor = ref('')
 const gameId = route.query.roomCode;
 
 const deckCount = ref(0);
@@ -64,6 +65,10 @@ const gameState = ref({
 const compassDeg = computed(() => {
   return gameState.value.rotationCount * 90;
 });
+
+const handleColor = (color) => {
+  myColor.value = color
+}
 
 const orderedPlayers = computed(() => {
   const ordered = [];
