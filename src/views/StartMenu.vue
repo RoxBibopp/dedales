@@ -43,6 +43,20 @@ import { useRouter } from 'vue-router';
 import socket from '@/socket';
 import ColorSelect from '../components/ColorSelect.vue';
 
+function generateUniqueId() {
+  return 'id-' + Math.random().toString(36).slice(2, 11) + '-' + Date.now();
+}
+
+let playerId = localStorage.getItem('playerId');
+if (!playerId) {
+  playerId = generateUniqueId();
+  localStorage.setItem('playerId', playerId);
+  console.log("playerId généré et stocké :", playerId);
+} else {
+  console.log("playerId récupéré depuis localStorage :", playerId);
+}
+
+
 const router = useRouter();
 const showCreateRoom = ref(false);
 const showJoinRoom = ref(false);
@@ -64,7 +78,8 @@ const createRoom = () => {
   socket.emit('createRoom', {
     expectedPlayers: expectedPlayers.value,
     organizerName: organizerName.value,
-    organizerColor: organizerColor.value
+    organizerColor: organizerColor.value,
+    playerId
   });
 };
 
@@ -72,15 +87,13 @@ const joinRoom = () => {
   socket.emit('joinRoom', {
     roomCode: joinRoomCode.value,
     playerName: playerName.value,
-    playerColor: playerColor.value
+    playerColor: playerColor.value,
+    playerId
   });
 };
 
-// Dès que le serveur envoie une mise à jour, on redirige vers le lobby de salle
 socket.on('updateGameState', (state) => {
-  // On suppose que state contient bien la propriété roomCode
   if (state.roomCode) {
-    // On redirige vers la vue du lobby en passant le roomCode
     router.push({
       name: 'roomlobby',
       query: {
@@ -97,8 +110,6 @@ socket.on('roomCreated', (data) => {
 socket.on('errorMessage', (data) => {
   errorMessage.value = data.message;
 });
-
-// Ici, on ne redirige plus directement vers "game", le lobby gère la redirection ultérieure
 </script>
 
 <style scoped>
